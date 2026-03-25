@@ -1,29 +1,62 @@
 openapi: "3.0.3"
 info:
-  title: Test APP
-  version: "1.0.1"
+  title: Civic Issue Reporting API
+  version: "1.0.0"
+  description: >
+    HTTP contract for an anonymous civic issue reporting platform used by citizens,
+    NGOs, and government institutions. Citizens can create and engage with issue
+    posts, while verified institution roles can access richer detail and summaries
+    for triage and response workflows.
 servers:
   - url: https://api.server.test/v1
+tags:
+  - name: System
+  - name: Auth
+  - name: Profiles
+  - name: Feed
+  - name: Posts
+  - name: Engagement
+  - name: Institution
+  - name: Metadata
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  parameters:
+    PostId:
+      name: postId
+      in: path
+      required: true
+      description: Unique post identifier.
+      schema:
+        type: string
+        format: uuid
+    AreaId:
+      name: areaId
+      in: path
+      required: true
+      description: Unique geographic area identifier.
+      schema:
+        type: string
+        format: uuid
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
   schemas:
-    Me:
-      type: object
-      required:
-        - id
-      properties:
-        id:
-          type: string
-          format: uuid
-        email:
-          type: string
-          format: email
-        role:
-          type: string
     Error:
       type: object
       required:
@@ -34,22 +67,1062 @@ components:
           type: string
         message:
           type: string
+        details:
+          type: object
+          additionalProperties: true
+
+    Health:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        timestamp:
+          type: string
+          format: date-time
+        services:
+          type: object
+          properties:
+            api:
+              type: string
+              enum: [ok]
+            database:
+              type: string
+              enum: [ok, degraded]
+            worker:
+              type: string
+              enum: [ok, degraded]
+
+    AreaRef:
+      type: object
+      required:
+        - id
+        - name
+        - areaType
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        areaType:
+          type: string
+          enum: [country, state, city, district, ward, locality, global]
+        parentAreaId:
+          type: string
+          format: uuid
+          nullable: true
+
+    GeoPoint:
+      type: object
+      required:
+        - latitude
+        - longitude
+      properties:
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        accuracyMeters:
+          type: number
+          format: double
+          nullable: true
+
+    OrganizationRef:
+      type: object
+      required:
+        - id
+        - name
+        - organizationType
+        - verified
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        organizationType:
+          type: string
+          enum: [ngo, government]
+        verified:
+          type: boolean
+
+    AuthUser:
+      type: object
+      required:
+        - id
+        - role
+        - onboardingComplete
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+          nullable: true
+        role:
+          type: string
+          enum: [citizen, ngo_staff, government_staff, admin]
+        onboardingComplete:
+          type: boolean
+
+    Profile:
+      type: object
+      required:
+        - id
+        - role
+        - publicAlias
+        - anonymousByDefault
+        - preferredLanguage
+        - onboardingComplete
+      properties:
+        id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [citizen, ngo_staff, government_staff, admin]
+        publicAlias:
+          type: string
+        anonymousByDefault:
+          type: boolean
+        preferredLanguage:
+          type: string
+        onboardingComplete:
+          type: boolean
+        homeArea:
+          $ref: "#/components/schemas/AreaRef"
+        organization:
+          $ref: "#/components/schemas/OrganizationRef"
+
+    CitizenProfile:
+      allOf:
+        - $ref: "#/components/schemas/Profile"
+        - type: object
+          properties:
+            role:
+              type: string
+              enum: [citizen]
+
+    InstitutionProfile:
+      allOf:
+        - $ref: "#/components/schemas/Profile"
+        - type: object
+          required:
+            - organization
+          properties:
+            role:
+              type: string
+              enum: [ngo_staff, government_staff, admin]
+            organization:
+              $ref: "#/components/schemas/OrganizationRef"
+
+    MeResponse:
+      type: object
+      required:
+        - user
+        - profile
+      properties:
+        user:
+          $ref: "#/components/schemas/AuthUser"
+        profile:
+          oneOf:
+            - $ref: "#/components/schemas/CitizenProfile"
+            - $ref: "#/components/schemas/InstitutionProfile"
+
+    ModerationState:
+      type: object
+      required:
+        - contentStatus
+        - reviewState
+        - reportCount
+      properties:
+        contentStatus:
+          type: string
+          enum: [visible, hidden, removed, under_review]
+        reviewState:
+          type: string
+          enum: [clean, flagged, pending_review, actioned]
+        reportCount:
+          type: integer
+        flaggedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    AiAssessment:
+      type: object
+      required:
+        - enrichmentStatus
+      properties:
+        enrichmentStatus:
+          type: string
+          enum: [pending, processing, completed, failed]
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+          nullable: true
+        complexity:
+          type: string
+          enum: [simple, moderate, complex, severe]
+          nullable: true
+        hazardTags:
+          type: array
+          items:
+            type: string
+        translatedText:
+          type: string
+          nullable: true
+        summary:
+          type: string
+          nullable: true
+        confidence:
+          type: number
+          format: float
+          nullable: true
+        modelVersion:
+          type: string
+          nullable: true
+        processedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    PostMedia:
+      type: object
+      required:
+        - id
+        - mediaType
+        - url
+      properties:
+        id:
+          type: string
+          format: uuid
+        mediaType:
+          type: string
+          enum: [image, video]
+        url:
+          type: string
+          format: uri
+        thumbnailUrl:
+          type: string
+          format: uri
+          nullable: true
+
+    Post:
+      type: object
+      required:
+        - id
+        - categoryId
+        - categoryLabel
+        - description
+        - area
+        - workflowStatus
+        - enrichmentStatus
+        - priorityScore
+        - raiseCount
+        - commentCount
+        - isAnonymous
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        categoryId:
+          type: string
+          format: uuid
+        categoryLabel:
+          type: string
+        description:
+          type: string
+        sourceLanguage:
+          type: string
+          nullable: true
+        displayLanguage:
+          type: string
+          nullable: true
+        authorAlias:
+          type: string
+        area:
+          $ref: "#/components/schemas/AreaRef"
+        workflowStatus:
+          type: string
+          enum: [open, acknowledged, in_progress, resolved, rejected]
+        enrichmentStatus:
+          type: string
+          enum: [pending, processing, completed, failed]
+        priorityScore:
+          type: number
+          format: float
+        raiseCount:
+          type: integer
+        commentCount:
+          type: integer
+        reportCount:
+          type: integer
+        isAnonymous:
+          type: boolean
+        media:
+          type: array
+          items:
+            $ref: "#/components/schemas/PostMedia"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    PostCard:
+      allOf:
+        - $ref: "#/components/schemas/Post"
+        - type: object
+          properties:
+            descriptionExcerpt:
+              type: string
+            rankingReason:
+              type: object
+              properties:
+                localityMatch:
+                  type: string
+                  enum: [exact, nearby, global, unknown]
+                engagementWeight:
+                  type: number
+                  format: float
+                aiSeverityWeight:
+                  type: number
+                  format: float
+
+    PostDetail:
+      allOf:
+        - $ref: "#/components/schemas/Post"
+        - type: object
+          properties:
+            aiAssessment:
+              $ref: "#/components/schemas/AiAssessment"
+
+    InstitutionPostDetail:
+      allOf:
+        - $ref: "#/components/schemas/PostDetail"
+        - type: object
+          required:
+            - exactLocation
+            - moderationState
+          properties:
+            exactLocation:
+              $ref: "#/components/schemas/GeoPoint"
+            moderationState:
+              $ref: "#/components/schemas/ModerationState"
+            internalNotes:
+              type: string
+              nullable: true
+            assignedOrganization:
+              $ref: "#/components/schemas/OrganizationRef"
+
+    Comment:
+      type: object
+      required:
+        - id
+        - postId
+        - body
+        - authorAlias
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        postId:
+          type: string
+          format: uuid
+        body:
+          type: string
+        authorAlias:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    Raise:
+      type: object
+      required:
+        - postId
+        - raised
+        - raiseCount
+      properties:
+        postId:
+          type: string
+          format: uuid
+        raised:
+          type: boolean
+        raiseCount:
+          type: integer
+
+    Report:
+      type: object
+      required:
+        - postId
+        - reasonCode
+        - submittedAt
+      properties:
+        postId:
+          type: string
+          format: uuid
+        reasonCode:
+          type: string
+          enum: [spam, abuse, misinformation, duplicate, privacy, other]
+        notes:
+          type: string
+          nullable: true
+        submittedAt:
+          type: string
+          format: date-time
+
+    PostCreateRequest:
+      type: object
+      required:
+        - categoryId
+        - description
+      properties:
+        categoryId:
+          type: string
+          format: uuid
+        description:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        sourceLanguage:
+          type: string
+        translateTargets:
+          type: array
+          items:
+            type: string
+        isAnonymous:
+          type: boolean
+          default: true
+        location:
+          type: object
+          properties:
+            mode:
+              type: string
+              enum: [auto_detected, manual, none]
+            areaId:
+              type: string
+              format: uuid
+              nullable: true
+            geoPoint:
+              $ref: "#/components/schemas/GeoPoint"
+        media:
+          type: array
+          items:
+            type: object
+            required:
+              - storagePath
+              - mediaType
+            properties:
+              storagePath:
+                type: string
+              mediaType:
+                type: string
+                enum: [image, video]
+
+    CommentCreateRequest:
+      type: object
+      required:
+        - body
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 2000
+
+    ReportCreateRequest:
+      type: object
+      required:
+        - reasonCode
+      properties:
+        reasonCode:
+          type: string
+          enum: [spam, abuse, misinformation, duplicate, privacy, other]
+        notes:
+          type: string
+          maxLength: 2000
+
+    ProfileRegisterRequest:
+      type: object
+      required:
+        - publicAlias
+        - preferredLanguage
+      properties:
+        publicAlias:
+          type: string
+          minLength: 3
+          maxLength: 40
+        preferredLanguage:
+          type: string
+        anonymousByDefault:
+          type: boolean
+          default: true
+        homeAreaId:
+          type: string
+          format: uuid
+          nullable: true
+
+    FeedResponse:
+      type: object
+      required:
+        - items
+        - page
+        - limit
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PostCard"
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        rankingPolicy:
+          type: object
+          properties:
+            factors:
+              type: array
+              items:
+                type: string
+            localityPriority:
+              type: array
+              items:
+                type: string
+
+    SummaryOverview:
+      type: object
+      required:
+        - dateRange
+        - totals
+      properties:
+        dateRange:
+          type: object
+          properties:
+            from:
+              type: string
+              format: date
+            to:
+              type: string
+              format: date
+        totals:
+          type: object
+          properties:
+            totalPosts:
+              type: integer
+            unresolvedPosts:
+              type: integer
+            highPriorityPosts:
+              type: integer
+            resolvedPosts:
+              type: integer
+        bySeverity:
+          type: array
+          items:
+            type: object
+            properties:
+              severity:
+                type: string
+              count:
+                type: integer
+        byCategory:
+          type: array
+          items:
+            type: object
+            properties:
+              categoryId:
+                type: string
+                format: uuid
+              label:
+                type: string
+              count:
+                type: integer
+        byStatus:
+          type: array
+          items:
+            type: object
+            properties:
+              status:
+                type: string
+              count:
+                type: integer
+
+    AreaSummary:
+      type: object
+      required:
+        - area
+        - totals
+      properties:
+        area:
+          $ref: "#/components/schemas/AreaRef"
+        totals:
+          type: object
+          properties:
+            totalPosts:
+              type: integer
+            unresolvedPosts:
+              type: integer
+            highPriorityPosts:
+              type: integer
+        byCategory:
+          type: array
+          items:
+            type: object
+            properties:
+              categoryId:
+                type: string
+                format: uuid
+              label:
+                type: string
+              count:
+                type: integer
+        topIssues:
+          type: array
+          items:
+            $ref: "#/components/schemas/PostCard"
+
+    Category:
+      type: object
+      required:
+        - id
+        - slug
+        - label
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        label:
+          type: string
+        severityHint:
+          type: string
+          nullable: true
+  responses:
+    BadRequest:
+      description: Invalid request payload or query parameters.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Authentication required or token invalid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Authenticated but not allowed to access the resource.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
 paths:
+  /health:
+    get:
+      tags: [System]
+      summary: Check service readiness.
+      responses:
+        "200":
+          description: Service health status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+
   /me:
     get:
-      summary: Get current authenticated user
+      tags: [Auth]
+      summary: Return the authenticated user and profile state.
       security:
         - bearerAuth: []
       responses:
         "200":
-          description: Authenticated user identity
+          description: Authenticated identity and profile.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Me"
+                $ref: "#/components/schemas/MeResponse"
         "401":
-          description: Authentication failed/required
+          $ref: "#/components/responses/Unauthorized"
+
+  /profiles/register:
+    post:
+      tags: [Profiles]
+      summary: Finalize a citizen profile after Supabase sign-up.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileRegisterRequest"
+      responses:
+        "201":
+          description: Profile created or completed.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/CitizenProfile"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /feed:
+    get:
+      tags: [Feed]
+      summary: Fetch the ranked issue feed.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+        - name: areaId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: categoryId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, acknowledged, in_progress, resolved, rejected]
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [ranked, newest, most_raised, most_commented]
+            default: ranked
+      responses:
+        "200":
+          description: Ranked feed response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /posts:
+    post:
+      tags: [Posts]
+      summary: Create a new civic issue post.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostCreateRequest"
+      responses:
+        "201":
+          description: Post created and ready for async enrichment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /posts/{postId}:
+    get:
+      tags: [Posts]
+      summary: Fetch public post detail.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      responses:
+        "200":
+          description: Public post detail with sanitized location.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /posts/{postId}/comments:
+    get:
+      tags: [Engagement]
+      summary: List comments for a post.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Comment list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Comment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Engagement]
+      summary: Add a comment to a post.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommentCreateRequest"
+      responses:
+        "201":
+          description: Comment created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /posts/{postId}/raises:
+    post:
+      tags: [Engagement]
+      summary: Toggle a raise on a post.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      responses:
+        "200":
+          description: Raise state updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Raise"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /posts/{postId}/reports:
+    post:
+      tags: [Engagement]
+      summary: Report abusive, unsafe, or invalid content.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportCreateRequest"
+      responses:
+        "201":
+          description: Report submitted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Report"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /institution/posts/{postId}:
+    get:
+      tags: [Institution]
+      summary: Fetch institution-only post detail with exact coordinates.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      responses:
+        "200":
+          description: Institution post detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstitutionPostDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /institution/summaries/overview:
+    get:
+      tags: [Institution]
+      summary: Fetch aggregate overview metrics for dashboards.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: areaId
+          in: query
+          schema:
+            type: string
+            format: uuid
+            nullable: true
+      responses:
+        "200":
+          description: Aggregate summary response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SummaryOverview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /institution/summaries/areas/{areaId}:
+    get:
+      tags: [Institution]
+      summary: Fetch area-specific summary data for an institution dashboard.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AreaId"
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Area-level summary response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AreaSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /categories:
+    get:
+      tags: [Metadata]
+      summary: List active problem categories.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Category list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Category"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /areas:
+    get:
+      tags: [Metadata]
+      summary: Search or list supported geographic areas.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: parentAreaId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [country, state, city, district, ward, locality, global]
+      responses:
+        "200":
+          description: Area list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AreaRef"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
