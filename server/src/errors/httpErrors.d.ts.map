@@ -1,0 +1,1 @@
+{"version":3,"file":"httpErrors.d.ts","sourceRoot":"","sources":["httpErrors.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,QAAQ,EAAE,MAAM,eAAe,CAAA;AAExC,qBAAa,eAAgB,SAAQ,QAAQ;gBAC/B,OAAO,SAAgB;CAGpC;AAED,qBAAa,iBAAkB,SAAQ,QAAQ;gBACjC,OAAO,SAAiB;CAGrC;AAED,qBAAa,cAAe,SAAQ,QAAQ;gBAC9B,OAAO,SAAc;CAGlC;AAED,qBAAa,aAAc,SAAQ,QAAQ;gBAC7B,OAAO,SAAc;CAGlC"}
