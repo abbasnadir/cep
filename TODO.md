@@ -1,0 +1,4 @@
+- [ ] Clean readme Files and design directory
+- [ ] Update readme to reflect current changes
+- [ ] Add docker 
+- [ ] Add integration tests
