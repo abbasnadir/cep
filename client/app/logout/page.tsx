@@ -3,28 +3,25 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-import { supabase } from "@/lib/supabaseClient";
+import { useAuth } from "@/components/auth-provider";
+import { StateBlock } from "@/components/state-block";
 
-export default function Logout() {
+export default function LogoutPage() {
   const router = useRouter();
+  const { signOut } = useAuth();
 
   useEffect(() => {
-    supabase.auth.signOut().finally(() => {
+    signOut().finally(() => {
       router.replace("/");
     });
-  }, [router]);
+  }, [router, signOut]);
 
   return (
-    <main className="app-shell flex min-h-screen items-center justify-center px-6 py-10">
-      <div className="panel w-full max-w-lg rounded-[32px] border border-white/60 p-10 text-center shadow-[var(--shadow)]">
-        <p className="eyebrow">Session</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--ink)]">
-          Signing you out
-        </h1>
-        <p className="mt-4 text-sm leading-6 text-[var(--muted)]">
-          Your Supabase session is being cleared and you&apos;ll return to the main feed in a moment.
-        </p>
-      </div>
-    </main>
+    <div className="mx-auto max-w-2xl">
+      <StateBlock
+        title="Signing you out"
+        description="Your Supabase session is being cleared. You will be returned to the landing page in a moment."
+      />
+    </div>
   );
 }

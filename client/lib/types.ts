@@ -86,6 +86,50 @@ export interface PostDetail extends PostCard {
   aiAssessment?: AiAssessment;
 }
 
+export interface Comment {
+  id: string;
+  postId: string;
+  body: string;
+  authorAlias: string;
+  createdAt: string;
+}
+
+export interface CommentListResponse {
+  items: Comment[];
+}
+
+export interface RaiseResponse {
+  postId: string;
+  raised: boolean;
+  raiseCount: number;
+}
+
+export interface Category {
+  id: string;
+  slug?: string;
+  label: string;
+  severityHint?: string | null;
+}
+
+export interface CategoryListResponse {
+  items: Category[];
+}
+
+export interface AreaListResponse {
+  items: AreaRef[];
+}
+
+export interface ReportCreateRequest {
+  reasonCode:
+    | "spam"
+    | "abuse"
+    | "misinformation"
+    | "duplicate"
+    | "privacy"
+    | "other";
+  notes?: string;
+}
+
 export interface FeedResponse {
   items: PostCard[];
   page: number;
