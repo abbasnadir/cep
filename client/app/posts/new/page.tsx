@@ -45,7 +45,7 @@ export default function NewPostPage() {
     async function loadMeta() {
       const accessToken = activeSession.access_token;
       try {
-        const [categoryResponse, areaResponse] = await Promise.allSettled([
+        const [categoryResponse, localityResponse] = await Promise.allSettled([
           apiFetch<CategoryListResponse>("/categories", {
             accessToken,
           }),
@@ -64,19 +64,62 @@ export default function NewPostPage() {
           }));
         }
 
-        if (areaResponse.status === "fulfilled") {
-          setAreas(areaResponse.value.items);
+        let nextAreas: AreaRef[] = [];
+
+        if (
+          localityResponse.status === "fulfilled" &&
+          localityResponse.value.items.length
+        ) {
+          nextAreas = localityResponse.value.items;
+        } else {
+          try {
+            const fallbackAreaResponse = await apiFetch<AreaListResponse>("/areas", {
+              accessToken,
+            });
+            nextAreas = fallbackAreaResponse.items;
+          } catch {
+            nextAreas = [];
+          }
         }
 
-        if (categoryResponse.status === "rejected" || areaResponse.status === "rejected") {
+        setAreas(nextAreas);
+        if (nextAreas.length) {
+          setForm((current) => ({
+            ...current,
+            areaId: current.areaId || nextAreas[0].id,
+            locationMode:
+              current.locationMode === "none" ? "manual" : current.locationMode,
+          }));
+        }
+
+        if (
+          categoryResponse.status === "rejected" ||
+          (localityResponse.status === "rejected" && !nextAreas.length)
+        ) {
           setMetaError(
-            "Some metadata endpoints are not available yet. You can still create a global text post.",
+            "Some metadata endpoints are not available yet. You can still publish a global text post.",
+          );
+        }
+
+        if (
+          localityResponse.status === "fulfilled" &&
+          !localityResponse.value.items.length &&
+          nextAreas.length
+        ) {
+          setMetaError(
+            "No locality rows were found, so the area selector is showing broader areas instead.",
+          );
+        }
+
+        if (!nextAreas.length) {
+          setMetaError(
+            "No areas are available from the backend yet. You can still publish a global post by keeping location mode on 'Global or no location'.",
           );
         }
       } catch {
         if (!ignore) {
           setMetaError(
-            "Metadata could not be loaded. Falling back to built-in category options.",
+            "Metadata could not be loaded from the backend. Check that the API is running, then reload the page.",
           );
         }
       }
@@ -247,6 +290,9 @@ export default function NewPostPage() {
                 <option value="manual">Choose an area</option>
                 <option value="auto_detected">Auto-detected later</option>
               </select>
+              <p className="mt-2 text-xs leading-6 text-slate-400">
+                Choose manual location to attach the post to an area from the backend.
+              </p>
             </label>
 
             <label className="block">
@@ -266,6 +312,11 @@ export default function NewPostPage() {
                   </option>
                 ))}
               </select>
+              <p className="mt-2 text-xs leading-6 text-slate-400">
+                {areas.length
+                  ? "Areas are coming from the backend lookup endpoint."
+                  : "No area options are available yet from the backend."}
+              </p>
             </label>
           </div>
 

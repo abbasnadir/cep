@@ -16,13 +16,44 @@ export async function routesHandler(): Promise<Router> {
       withFileTypes: true,
     });
 
-    for (const dir of directory) {
-      if (dir.isDirectory()) continue;
+    const runtimeFiles = directory
+      .filter((dirent) => !dirent.isDirectory())
+      .map((dirent) => dirent.name)
+      .filter((name) => /\.(ts|js|cjs|mjs)$/i.test(name))
+      .filter((name) => !/\.d\.(ts|js|cjs|mjs)$/i.test(name))
+      .sort((left, right) => left.localeCompare(right));
 
-      // Add more filename options if necessary
-      if (!/\.(ts|js|cjs|mjs)$/i.test(dir.name)) continue;
+    const modulePreference = [".ts", ".js", ".mjs", ".cjs"];
+    const selectedFiles = new Map<string, string>();
 
-      const module = await import(path.join(parentDir, dir.name));
+    for (const file of runtimeFiles) {
+      const matchedExtension = modulePreference.find((extension) =>
+        file.endsWith(extension),
+      );
+
+      if (!matchedExtension) continue;
+
+      const baseName = file.slice(0, -matchedExtension.length);
+      const existing = selectedFiles.get(baseName);
+
+      if (!existing) {
+        selectedFiles.set(baseName, file);
+        continue;
+      }
+
+      const existingExtension =
+        modulePreference.find((extension) => existing.endsWith(extension)) ?? ".js";
+
+      if (
+        modulePreference.indexOf(matchedExtension) <
+        modulePreference.indexOf(existingExtension)
+      ) {
+        selectedFiles.set(baseName, file);
+      }
+    }
+
+    for (const file of selectedFiles.values()) {
+      const module = await import(path.join(parentDir, file));
       const routerObj: RouterObject = module.default;
 
       for (const obj of routerObj.functions) {

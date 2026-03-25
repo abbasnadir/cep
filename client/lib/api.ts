@@ -23,11 +23,19 @@ export async function apiFetch<T>(
     nextHeaders.set("Authorization", `Bearer ${accessToken}`);
   }
 
-  const response = await fetch(`${ENV.NEXT_PUBLIC_API_BASE_URL}${path}`, {
-    ...init,
-    headers: nextHeaders,
-    cache: "no-store",
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(`${ENV.NEXT_PUBLIC_API_BASE_URL}${path}`, {
+      ...init,
+      headers: nextHeaders,
+      cache: "no-store",
+    });
+  } catch {
+    throw new Error(
+      `Could not reach the API at ${ENV.NEXT_PUBLIC_API_BASE_URL}. Make sure the server is running and CORS allows the current frontend origin.`,
+    );
+  }
 
   if (!response.ok) {
     let message = `Request failed with status ${response.status}`;
