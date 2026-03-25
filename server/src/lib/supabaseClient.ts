@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
+import { ENV } from "./env.js";
 
-// Create a supabase client to connect with database
 export const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY!,
+  ENV.SUPABASE_URL,
+  ENV.SUPABASE_SERVICE_KEY,
 );

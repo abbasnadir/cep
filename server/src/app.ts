@@ -14,6 +14,7 @@ import cors from "cors";
 import { routesHandler } from "./lib/routeHandler.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import { NotFoundError } from "./errors/httpErrors.js";
+import { ENV } from "./lib/env.js";
 const app: Express = express();
 const __dirname = import.meta.dirname;
 
@@ -21,10 +22,7 @@ const __dirname = import.meta.dirname;
 app.use(logger("dev"));
 app.use(
   cors({
-    origin:
-      process.env.NODE_ENV === "production"
-        ? process.env.PROD_URL
-        : "http://localhost:3000",
+    origin: ENV.PROD_URL,
     credentials: true,
   }),
 );

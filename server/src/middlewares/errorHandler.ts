@@ -6,8 +6,9 @@ import type {
 } from "express";
 import { AppError } from "../errors/AppError.js";
 import type { ResponseError } from "../../types/responseError.js";
+import { ENV } from "../lib/env.js";
 
-const isDev = process.env.NODE_ENV === "development";
+const isDev = ENV.NODE_ENV === "development";
 
 // Error Handler middleware
 export const errorHandler: ErrorRequestHandler = (
