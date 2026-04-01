@@ -40,15 +40,19 @@ flowchart TD
 
 ## Institution Flow
 
-1. NGO and government users authenticate through the same Supabase flow.
-2. The backend verifies that their profile has an institution role and a verified organization relationship.
+1. NGO, government, and admin users authenticate through the same Supabase flow.
+2. The backend verifies that their profile has an institution role and a verified organization relationship, unless the user is a global admin.
 3. Institution users land on a dashboard that highlights:
    - unresolved issues
    - high-priority issues
    - summaries by area, category, and severity
    - recent spikes in specific localities
-4. Opening a post from the dashboard shows institution-only detail such as exact coordinates, severity breakdown, moderation flags, and case-tracking metadata.
-5. Institution users can triage, acknowledge, or follow the issue through an operational workflow backed by status history and case-tracking tables.
+4. Access inside the dashboard is role-tiered:
+   - NGO staff can update case progress and internal notes for their organization
+   - government staff can also move public workflow states such as acknowledged, in progress, and resolved
+   - admins can also review reported-post queues, dismiss or action reports, and reassign ownership
+5. Opening a post from the dashboard shows institution-only detail such as exact coordinates, severity breakdown, moderation flags, and case-tracking metadata.
+6. Institution users can triage, acknowledge, or follow the issue through an operational workflow backed by status history and case-tracking tables.
 
 ## System And Worker Flow
 
@@ -83,3 +87,4 @@ sequenceDiagram
 - Public feeds and detail pages must never expose exact coordinates.
 - Institution dashboards can use exact coordinates only after authorization checks pass.
 - Reports are moderation actions and must not directly change civic issue severity.
+- The public homepage should resolve to the live feed instead of a separate marketing landing page.

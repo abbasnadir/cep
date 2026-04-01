@@ -23,6 +23,7 @@ export interface Profile {
   onboardingComplete: boolean;
   homeArea?: AreaRef;
   organization?: OrganizationRef;
+  institutionAccess?: InstitutionAccess;
 }
 
 export interface MeResponse {
@@ -33,6 +34,28 @@ export interface MeResponse {
     onboardingComplete: boolean;
   };
   profile: Profile;
+}
+
+export interface InstitutionAccess {
+  role: Exclude<Role, "citizen">;
+  scope: "organization" | "global";
+  canUpdateCaseNotes: boolean;
+  canUpdateCaseStatus: boolean;
+  canUpdateWorkflowStatus: boolean;
+  allowedWorkflowStatuses: Array<
+    "open" | "acknowledged" | "in_progress" | "resolved" | "rejected"
+  >;
+  canViewReportedQueue: boolean;
+  canReviewReports: boolean;
+  canAssignOrganization: boolean;
+}
+
+export interface InstitutionReportReview {
+  id: string;
+  reasonCode: ReportCreateRequest["reasonCode"];
+  notes?: string | null;
+  reviewStatus: "pending_review" | "dismissed" | "actioned" | "escalated";
+  createdAt: string;
 }
 
 export interface AiAssessment {
@@ -69,8 +92,10 @@ export interface PostCard {
   priorityScore: number;
   raiseCount: number;
   commentCount: number;
+  followerCount: number;
   reportCount: number;
   isAnonymous: boolean;
+  isFollowing?: boolean;
   media: PostMedia[];
   createdAt: string;
   updatedAt?: string | null;
@@ -102,6 +127,12 @@ export interface RaiseResponse {
   postId: string;
   raised: boolean;
   raiseCount: number;
+}
+
+export interface FollowResponse {
+  postId: string;
+  following: boolean;
+  followerCount: number;
 }
 
 export interface Category {
@@ -142,6 +173,7 @@ export interface SummaryOverview {
     from: string;
     to: string;
   };
+  access?: InstitutionAccess;
   totals: {
     totalPosts: number;
     unresolvedPosts: number;
@@ -162,6 +194,7 @@ export interface SummaryOverview {
     count: number;
   }>;
   topIssues?: PostCard[];
+  reportedPosts?: PostCard[];
   byArea?: Array<{
     area: AreaRef;
     totals: {
@@ -205,4 +238,13 @@ export interface ComposerState {
   translateEnabled: boolean;
   isAnonymous: boolean;
   mediaFiles: File[];
+}
+
+export interface InstitutionPostUpdateRequest {
+  workflowStatus?: PostCard["workflowStatus"];
+  caseStatus?: "triage" | "investigating" | "responding" | "monitoring" | "closed";
+  internalNotes?: string | null;
+  reportReviewStatus?: InstitutionReportReview["reviewStatus"];
+  assignedOrganizationId?: string;
+  changeReason?: string;
 }

@@ -5,6 +5,7 @@ import {
   fetchInstitutionPostDetail,
   fetchSummary,
   requireInstitutionProfile,
+  updateInstitutionPost,
 } from "../lib/civicData.js";
 
 const institutionRouter: RouterObject = {
@@ -17,9 +18,22 @@ const institutionRouter: RouterObject = {
       rateLimit: "read",
       keyType: "user",
       handler: async (req: Request, res: Response) => {
-        await requireInstitutionProfile(req.user.id);
+        const profile = await requireInstitutionProfile(req.user.id);
         const postId = assertUuid(req.params.postId, "postId");
-        const post = await fetchInstitutionPostDetail(postId);
+        const post = await fetchInstitutionPostDetail(postId, profile);
+        res.status(200).json(post);
+      },
+    },
+    {
+      method: "patch",
+      props: "/posts/:postId",
+      authorization: "required",
+      rateLimit: "gameplay",
+      keyType: "user",
+      handler: async (req: Request, res: Response) => {
+        const profile = await requireInstitutionProfile(req.user.id);
+        const postId = assertUuid(req.params.postId, "postId");
+        const post = await updateInstitutionPost(req.user.id, postId, req.body, profile);
         res.status(200).json(post);
       },
     },
@@ -30,8 +44,8 @@ const institutionRouter: RouterObject = {
       rateLimit: "read",
       keyType: "user",
       handler: async (req: Request, res: Response) => {
-        await requireInstitutionProfile(req.user.id);
-        const summary = await fetchSummary(req);
+        const profile = await requireInstitutionProfile(req.user.id);
+        const summary = await fetchSummary(req, undefined, profile);
         res.status(200).json(summary);
       },
     },
@@ -42,9 +56,9 @@ const institutionRouter: RouterObject = {
       rateLimit: "read",
       keyType: "user",
       handler: async (req: Request, res: Response) => {
-        await requireInstitutionProfile(req.user.id);
+        const profile = await requireInstitutionProfile(req.user.id);
         const areaId = assertUuid(req.params.areaId, "areaId");
-        const summary = await fetchSummary(req, areaId);
+        const summary = await fetchSummary(req, areaId, profile);
         res.status(200).json(summary);
       },
     },

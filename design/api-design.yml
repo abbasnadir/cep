@@ -222,6 +222,45 @@ components:
               enum: [ngo_staff, government_staff, admin]
             organization:
               $ref: "#/components/schemas/OrganizationRef"
+            institutionAccess:
+              $ref: "#/components/schemas/InstitutionAccess"
+
+    InstitutionAccess:
+      type: object
+      required:
+        - role
+        - scope
+        - canUpdateCaseNotes
+        - canUpdateCaseStatus
+        - canUpdateWorkflowStatus
+        - allowedWorkflowStatuses
+        - canViewReportedQueue
+        - canReviewReports
+        - canAssignOrganization
+      properties:
+        role:
+          type: string
+          enum: [ngo_staff, government_staff, admin]
+        scope:
+          type: string
+          enum: [organization, global]
+        canUpdateCaseNotes:
+          type: boolean
+        canUpdateCaseStatus:
+          type: boolean
+        canUpdateWorkflowStatus:
+          type: boolean
+        allowedWorkflowStatuses:
+          type: array
+          items:
+            type: string
+            enum: [open, acknowledged, in_progress, resolved, rejected]
+        canViewReportedQueue:
+          type: boolean
+        canReviewReports:
+          type: boolean
+        canAssignOrganization:
+          type: boolean
 
     MeResponse:
       type: object
@@ -418,13 +457,23 @@ components:
           properties:
             exactLocation:
               $ref: "#/components/schemas/GeoPoint"
+            access:
+              $ref: "#/components/schemas/InstitutionAccess"
             moderationState:
               $ref: "#/components/schemas/ModerationState"
+            caseStatus:
+              type: string
+              enum: [triage, investigating, responding, monitoring, closed]
+              nullable: true
             internalNotes:
               type: string
               nullable: true
             assignedOrganization:
               $ref: "#/components/schemas/OrganizationRef"
+            reports:
+              type: array
+              items:
+                $ref: "#/components/schemas/InstitutionReportReview"
 
     Comment:
       type: object
@@ -481,6 +530,30 @@ components:
           type: string
           nullable: true
         submittedAt:
+          type: string
+          format: date-time
+
+    InstitutionReportReview:
+      type: object
+      required:
+        - id
+        - reasonCode
+        - reviewStatus
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        reasonCode:
+          type: string
+          enum: [spam, abuse, misinformation, duplicate, privacy, other]
+        notes:
+          type: string
+          nullable: true
+        reviewStatus:
+          type: string
+          enum: [pending_review, dismissed, actioned, escalated]
+        createdAt:
           type: string
           format: date-time
 
@@ -554,6 +627,29 @@ components:
           type: string
           maxLength: 2000
 
+    InstitutionPostUpdateRequest:
+      type: object
+      properties:
+        workflowStatus:
+          type: string
+          enum: [open, acknowledged, in_progress, resolved, rejected]
+        caseStatus:
+          type: string
+          enum: [triage, investigating, responding, monitoring, closed]
+        internalNotes:
+          type: string
+          nullable: true
+          maxLength: 4000
+        reportReviewStatus:
+          type: string
+          enum: [pending_review, dismissed, actioned, escalated]
+        assignedOrganizationId:
+          type: string
+          format: uuid
+        changeReason:
+          type: string
+          maxLength: 255
+
     ProfileRegisterRequest:
       type: object
       required:
@@ -619,6 +715,8 @@ components:
             to:
               type: string
               format: date
+        access:
+          $ref: "#/components/schemas/InstitutionAccess"
         totals:
           type: object
           properties:
@@ -660,6 +758,14 @@ components:
                 type: string
               count:
                 type: integer
+        topIssues:
+          type: array
+          items:
+            $ref: "#/components/schemas/PostCard"
+        reportedPosts:
+          type: array
+          items:
+            $ref: "#/components/schemas/PostCard"
 
     AreaSummary:
       type: object
@@ -998,11 +1104,39 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Institution]
+      summary: Update institution case state, workflow status, or moderation review.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InstitutionPostUpdateRequest"
+      responses:
+        "200":
+          description: Updated institution post detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstitutionPostDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /institution/summaries/overview:
     get:
       tags: [Institution]
-      summary: Fetch aggregate overview metrics for dashboards.
+      summary: Fetch aggregate overview metrics for dashboards, including admin moderation queue data when permitted.
       security:
         - bearerAuth: []
       parameters:

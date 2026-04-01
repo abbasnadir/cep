@@ -3,6 +3,7 @@
 ## V1
 
 - Supabase authentication for citizens, NGOs, and government staff in one shared app
+- Public feed served directly on `/`, with `/feed` retained as a compatible alias
 - Anonymous-by-default citizen profiles with public alias, preferred language, and home area
 - Ranked issue feed with filters for area, category, status, and sort mode
 - Issue post creation with:
@@ -16,6 +17,12 @@
 - Raise, comment, and report actions on posts
 - Institution-only post detail with exact coordinates, AI severity breakdown, and moderation state
 - Institution summary views for counts by status, area, category, severity, and time window
+- Role-tiered institution dashboard access:
+  - NGO staff can maintain case progress and internal response notes for their organization
+  - government staff can additionally move public workflow status through acknowledgement, in-progress, and resolution
+  - admins can additionally review reported posts, moderate report queues, and reassign organization ownership
+- Admin moderation queue for pending reported posts inside the institution dashboard
+- Institution case and workflow mutations backed by audit-safe status history
 - Background enrichment jobs for:
   - image severity and complexity analysis
   - translation normalization
@@ -26,11 +33,9 @@
 
 ## Later
 
-- Institution assignment and case ownership workflows
 - Notifications for status changes, comments, and escalations
 - Saved filters and followed areas for institutions
 - Citizen post editing windows with audit-safe revision history
-- Moderation dashboard for abusive or duplicate content review
 - Map-based exploration of issue clusters
 - SLA and response-time tracking for institutional teams
 - Real-time feed refresh and live comment updates

@@ -11,7 +11,10 @@
 ## Roles And Access
 
 - One app serves all users, but route and data access are role-based.
-- Institution-only endpoints require both a role in `profiles` and a verified organization relationship.
+- Institution-only endpoints require both a role in `profiles` and a verified organization relationship, except for global admins.
+- NGO staff can update institution case progress and internal notes only within their organization scope.
+- Government staff can do everything NGO staff can, and can also move public workflow states for posts they are responding to.
+- Admins can do everything institution responders can, and additionally review abuse reports, see the pending moderation queue, and reassign case ownership across organizations.
 - Moderation metadata, abuse reports, and internal case-tracking data stay hidden from citizens.
 - Row-level security must protect private tables and private columns where possible.
 

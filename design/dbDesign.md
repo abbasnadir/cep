@@ -110,6 +110,13 @@ erDiagram
         TIMESTAMPTZ created_at
     }
 
+    post_follows {
+        UUID id PK
+        UUID post_id FK
+        UUID user_id FK
+        TIMESTAMPTZ created_at
+    }
+
     post_reports {
         UUID id PK
         UUID post_id FK
@@ -166,6 +173,8 @@ erDiagram
     profiles ||--o{ post_comments : writes
     posts ||--o{ post_raises : receives
     profiles ||--o{ post_raises : performs
+    posts ||--o{ post_follows : receives
+    profiles ||--o{ post_follows : performs
     posts ||--o{ post_reports : receives
     profiles ||--o{ post_reports : files
     posts ||--o{ post_status_history : tracks
@@ -182,6 +191,15 @@ erDiagram
 - `auth_users` represents Supabase Auth identities and is managed by Supabase.
 - `posts.latitude` and `posts.longitude` are sensitive and should never be exposed by public APIs.
 - `post_ai_assessments` is system-managed and updated by asynchronous enrichment jobs.
+- `profiles.role` drives responder capabilities:
+  - `ngo_staff` can maintain organization-scoped case status and response notes
+  - `government_staff` can additionally update public post workflow status
+  - `admin` can additionally review abuse reports and reassign institution ownership
+- `post_reports.review_status` should support at least `pending_review`, `dismissed`, `actioned`, and `escalated`.
+- `institution_case_views` should be keyed operationally by `(post_id, organization_id)` even if the physical uniqueness rule is added later.
 - `daily_post_summaries` can be implemented as a physical table refreshed by workers or as a materialized view, depending on operational needs.
 - If stored as a table, enforce uniqueness on `(summary_date, area_id, category_id, workflow_status, severity_level)`.
 - `post_raises` should enforce one active raise per `(post_id, user_id)` pair.
+- `post_follows` should enforce one active follow per `(post_id, user_id)` pair.
+- No extra table is required for `Open thread` because it reads the existing `posts` and `post_comments` records.
+- No extra table is required for `Share context` when it is implemented as a deep-link into the existing comment composer.

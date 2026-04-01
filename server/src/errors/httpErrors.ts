@@ -24,3 +24,15 @@ export class NotFoundError extends AppError {
     super(message, 404, "NOT_FOUND")
   }
 }
+
+export class UnprocessableEntityError extends AppError {
+  constructor(message = "Unprocessable entity", code = "UNPROCESSABLE_ENTITY") {
+    super(message, 422, code)
+  }
+}
+
+export class ServiceUnavailableError extends AppError {
+  constructor(message = "Service unavailable") {
+    super(message, 503, "SERVICE_UNAVAILABLE")
+  }
+}

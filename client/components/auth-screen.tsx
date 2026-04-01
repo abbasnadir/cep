@@ -23,7 +23,7 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
 
   useEffect(() => {
     if (session) {
-      router.replace("/feed");
+      router.replace("/");
     }
   }, [router, session]);
 
@@ -39,7 +39,7 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
           email: form.email,
           password: form.password,
           options: {
-            emailRedirectTo: `${ENV.NEXT_PUBLIC_SITE_URL}/feed`,
+            emailRedirectTo: `${ENV.NEXT_PUBLIC_SITE_URL}/`,
             data: {
               public_alias: form.alias.trim(),
             },
@@ -50,7 +50,7 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
 
         if (data.session) {
           await refreshProfile();
-          router.push("/feed");
+          router.push("/");
           return;
         }
 
@@ -65,7 +65,7 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
 
         if (authError) throw authError;
         await refreshProfile();
-        router.push("/feed");
+        router.push("/");
       }
     } catch (authError) {
       setError(
@@ -84,7 +84,7 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${ENV.NEXT_PUBLIC_SITE_URL}/feed`,
+          redirectTo: `${ENV.NEXT_PUBLIC_SITE_URL}/`,
         },
       });
 

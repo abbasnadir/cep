@@ -349,13 +349,14 @@ export default function NewPostPage() {
       return;
     }
 
+    const resolvedAccessToken = accessToken;
     let ignore = false;
 
     setMetaLoading(true);
 
     async function hydrateMeta() {
       try {
-        const meta = await getComposerMeta(accessToken);
+        const meta = await getComposerMeta(resolvedAccessToken);
 
         if (ignore) return;
 
@@ -505,7 +506,23 @@ export default function NewPostPage() {
 
   return (
     <section className="mx-auto max-w-4xl">
-      <div className="surface rounded-[32px] border border-white/10 p-6">
+      <div className="surface relative rounded-[32px] border border-white/10 p-6">
+        {submitting && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-[32px] bg-slate-950/80 px-6 text-center backdrop-blur-sm">
+            <div className="max-w-md rounded-[28px] border border-cyan-300/20 bg-cyan-400/10 px-6 py-7 shadow-2xl">
+              <div
+                className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-white/15 border-t-cyan-300"
+                aria-hidden="true"
+              />
+              <p className="mt-4 text-sm font-semibold uppercase tracking-[0.24em] text-cyan-100/80">
+                Checking for spam
+              </p>
+              <p className="mt-3 text-sm leading-7 text-slate-200">
+                The backend is checking this post with Ollama before it is created. This can take a few seconds.
+              </p>
+            </div>
+          </div>
+        )}
         <p className="label-text">Create a post</p>
         <h1 className="mt-3 text-4xl font-semibold tracking-[-0.04em] text-white">
           Publish a new civic issue
@@ -528,6 +545,12 @@ export default function NewPostPage() {
         )}
 
         <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
+          {submitting && (
+            <div className="rounded-[24px] border border-cyan-300/20 bg-cyan-400/10 p-4 text-sm text-cyan-50">
+              The backend is checking your post for spam before it allows creation.
+            </div>
+          )}
+
           <div className="grid gap-4 md:grid-cols-2">
             <label className="block">
               <span className="label-text">Category</span>
@@ -712,7 +735,7 @@ export default function NewPostPage() {
 
           <div className="flex flex-wrap gap-3">
             <button type="submit" disabled={submitting} className="button-primary">
-              {submitting ? "Publishing..." : "Publish post"}
+              {submitting ? "Checking for spam..." : "Publish post"}
             </button>
           </div>
         </form>

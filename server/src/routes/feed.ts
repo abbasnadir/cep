@@ -7,7 +7,7 @@ const feedRouter: RouterObject = {
   functions: [
     {
       method: "get",
-      authorization: "required",
+      authorization: "optional",
       rateLimit: "read",
       keyType: "default",
       handler: async (req: Request, res: Response) => {

@@ -7,9 +7,54 @@ import {
   NotFoundError,
 } from "../errors/httpErrors.js";
 import { supabase } from "./supabaseClient.js";
+import { assertPostIsNotSpam } from "./spamFilter.js";
 
 type DbRow = Record<string, any>;
 const APP_ROLES = new Set(["citizen", "ngo_staff", "government_staff", "admin"]);
+const INSTITUTION_ROLES = ["ngo_staff", "government_staff", "admin"] as const;
+const WORKFLOW_STATUSES = [
+  "open",
+  "acknowledged",
+  "in_progress",
+  "resolved",
+  "rejected",
+] as const;
+const CASE_STATUSES = ["triage", "investigating", "responding", "monitoring", "closed"] as const;
+const REPORT_REVIEW_STATUSES = [
+  "pending_review",
+  "dismissed",
+  "actioned",
+  "escalated",
+] as const;
+const INSTITUTION_ACCESS_BY_ROLE = {
+  ngo_staff: {
+    scope: "organization",
+    canUpdateCaseNotes: true,
+    canUpdateCaseStatus: true,
+    allowedWorkflowStatuses: [] as string[],
+    canViewReportedQueue: false,
+    canReviewReports: false,
+    canAssignOrganization: false,
+  },
+  government_staff: {
+    scope: "organization",
+    canUpdateCaseNotes: true,
+    canUpdateCaseStatus: true,
+    allowedWorkflowStatuses: ["acknowledged", "in_progress", "resolved"],
+    canViewReportedQueue: false,
+    canReviewReports: false,
+    canAssignOrganization: false,
+  },
+  admin: {
+    scope: "global",
+    canUpdateCaseNotes: true,
+    canUpdateCaseStatus: true,
+    allowedWorkflowStatuses: [...WORKFLOW_STATUSES],
+    canViewReportedQueue: true,
+    canReviewReports: true,
+    canAssignOrganization: true,
+  },
+} as const;
 const DEFAULT_CATEGORIES = [
   { slug: "sanitation", label: "Sanitation", severityHint: "medium" },
   { slug: "flooding", label: "Flooding", severityHint: "high" },
@@ -58,6 +103,56 @@ function ensureSuccess<T>(data: T, error: { message: string } | null, message?: 
   }
 
   return data;
+}
+
+function logFallback(message: string, error: { message: string } | null) {
+  if (!error) return;
+  console.warn(`${message}: ${error.message}`);
+}
+
+function assertEnumValue<T extends readonly string[]>(
+  value: unknown,
+  allowed: T,
+  name: string,
+): T[number] {
+  assert(typeof value === "string" && allowed.includes(value), `${name} is invalid`);
+  return value as T[number];
+}
+
+function resolveInstitutionAccess(role: unknown) {
+  const resolvedRole = resolveAppRole(role);
+
+  if (!INSTITUTION_ROLES.includes(resolvedRole as (typeof INSTITUTION_ROLES)[number])) {
+    return null;
+  }
+
+  const access = INSTITUTION_ACCESS_BY_ROLE[resolvedRole as keyof typeof INSTITUTION_ACCESS_BY_ROLE];
+
+  return {
+    role: resolvedRole as (typeof INSTITUTION_ROLES)[number],
+    scope: access.scope,
+    canUpdateCaseNotes: access.canUpdateCaseNotes,
+    canUpdateCaseStatus: access.canUpdateCaseStatus,
+    allowedWorkflowStatuses: [...access.allowedWorkflowStatuses],
+    canUpdateWorkflowStatus: access.allowedWorkflowStatuses.length > 0,
+    canViewReportedQueue: access.canViewReportedQueue,
+    canReviewReports: access.canReviewReports,
+    canAssignOrganization: access.canAssignOrganization,
+  };
+}
+
+function mapInstitutionAccess(access: NonNullable<ReturnType<typeof resolveInstitutionAccess>>) {
+  return {
+    role: access.role,
+    scope: access.scope,
+    canUpdateCaseNotes: access.canUpdateCaseNotes,
+    canUpdateCaseStatus: access.canUpdateCaseStatus,
+    canUpdateWorkflowStatus: access.canUpdateWorkflowStatus,
+    allowedWorkflowStatuses: access.allowedWorkflowStatuses,
+    canViewReportedQueue: access.canViewReportedQueue,
+    canReviewReports: access.canReviewReports,
+    canAssignOrganization: access.canAssignOrganization,
+  };
 }
 
 function resolveAppRole(role: unknown) {
@@ -112,7 +207,8 @@ function mapOrganization(organization: DbRow | null | undefined) {
   };
 }
 
-function toExcerpt(text: string): string {
+function toExcerpt(text: string | null | undefined): string {
+  if (typeof text !== "string") return "";
   return text.length <= 170 ? text : `${text.slice(0, 167)}...`;
 }
 
@@ -175,8 +271,13 @@ async function fetchAreasByIds(areaIds: string[]) {
     .select("id, name, area_type, parent_area_id")
     .in("id", areaIds);
 
+  if (error) {
+    logFallback("Falling back to empty area lookup", error);
+    return new Map<string, DbRow>();
+  }
+
   return new Map(
-    ensureSuccess(data ?? [], error, "Failed to load areas").map((row) => [row.id, row]),
+    (data ?? []).map((row) => [row.id, row]),
   );
 }
 
@@ -188,9 +289,36 @@ async function fetchCategoriesByIds(categoryIds: string[]) {
     .select("id, slug, display_name, severity_hint")
     .in("id", categoryIds);
 
+  if (error) {
+    logFallback("Falling back to empty category lookup", error);
+    return new Map<string, DbRow>();
+  }
+
   return new Map(
-    ensureSuccess(data ?? [], error, "Failed to load categories").map((row) => [row.id, row]),
+    (data ?? []).map((row) => [row.id, row]),
   );
+}
+
+async function fetchPostRowsByIds(postIds: string[], options?: { includeExactLocation?: boolean }) {
+  if (!postIds.length) return [];
+
+  const select =
+    "id, author_id, category_id, area_id, public_alias_snapshot, description, source_language, display_language, workflow_status, enrichment_status, priority_score, is_anonymous, sanitized_area_label, created_at, updated_at" +
+    (options?.includeExactLocation ? ", latitude, longitude" : "");
+
+  const { data, error } = await supabase.from("posts").select(select).in("id", postIds);
+  const rows = ensureSuccess(data ?? [], error, "Failed to load posts") as DbRow[];
+  const rowMap = new Map<string, DbRow>(rows.map((row) => [row.id, row]));
+  const orderedRows: DbRow[] = [];
+
+  for (const postId of postIds) {
+    const row = rowMap.get(postId);
+    if (row) {
+      orderedRows.push(row);
+    }
+  }
+
+  return orderedRows;
 }
 
 async function resolveCategoryId(categoryInput: string) {
@@ -294,14 +422,13 @@ export async function requireProfile(userId: string) {
 
 export async function requireInstitutionProfile(userId: string) {
   const profile = await requireProfile(userId);
-  const role = profile.role;
-  const allowedRoles = ["ngo_staff", "government_staff", "admin"];
+  const access = resolveInstitutionAccess(profile.role);
 
-  if (!allowedRoles.includes(role)) {
+  if (!access) {
     throw new ForbiddenError("Institution access required");
   }
 
-  if (role !== "admin" && !profile.organization?.is_verified) {
+  if (access.role !== "admin" && !profile.organization?.is_verified) {
     throw new ForbiddenError("Institution role is not verified");
   }
 
@@ -327,30 +454,39 @@ export function mapProfileResponse(profile: DbRow, user: Request["user"]) {
       onboardingComplete: Boolean(profile.onboarding_complete),
       homeArea: mapArea(profile.homeArea),
       organization: mapOrganization(profile.organization),
+      ...(resolveInstitutionAccess(resolvedRole)
+        ? {
+            institutionAccess: mapInstitutionAccess(
+              resolveInstitutionAccess(resolvedRole)!,
+            ),
+          }
+        : {}),
     },
   };
 }
 
 async function fetchPostSupportData(postIds: string[]) {
-  const [mediaResult, aiResult, commentResult, raiseResult, reportResult] = await Promise.all([
-    supabase
-      .from("post_media")
-      .select("id, post_id, storage_bucket, storage_path, media_type")
-      .in("post_id", postIds),
-    supabase
-      .from("post_ai_assessments")
-      .select(
-        "post_id, enrichment_status, severity_level, complexity_level, summary, translated_text, hazard_tags, confidence_score, model_version, processed_at",
-      )
-      .in("post_id", postIds),
-    supabase
-      .from("post_comments")
-      .select("post_id")
-      .in("post_id", postIds)
-      .eq("is_deleted", false),
-    supabase.from("post_raises").select("post_id").in("post_id", postIds),
-    supabase.from("post_reports").select("post_id, created_at").in("post_id", postIds),
-  ]);
+  const [mediaResult, aiResult, commentResult, raiseResult, reportResult, followResult] =
+    await Promise.all([
+      supabase
+        .from("post_media")
+        .select("id, post_id, storage_bucket, storage_path, media_type")
+        .in("post_id", postIds),
+      supabase
+        .from("post_ai_assessments")
+        .select(
+          "post_id, enrichment_status, severity_level, complexity_level, summary, translated_text, hazard_tags, confidence_score, model_version, processed_at",
+        )
+        .in("post_id", postIds),
+      supabase
+        .from("post_comments")
+        .select("post_id")
+        .in("post_id", postIds)
+        .eq("is_deleted", false),
+      supabase.from("post_raises").select("post_id").in("post_id", postIds),
+      supabase.from("post_reports").select("post_id, created_at").in("post_id", postIds),
+      supabase.from("post_follows").select("post_id, user_id").in("post_id", postIds),
+    ]);
 
   return {
     mediaRows: ensureSuccess(
@@ -377,6 +513,11 @@ async function fetchPostSupportData(postIds: string[]) {
       reportResult.data ?? [],
       reportResult.error,
       "Failed to load reports",
+    ),
+    followRows: ensureSuccess(
+      followResult.data ?? [],
+      followResult.error,
+      "Failed to load follows",
     ),
   };
 }
@@ -406,7 +547,10 @@ function mapMedia(mediaRows: DbRow[]) {
   }));
 }
 
-export async function hydratePosts(rows: DbRow[], options?: { includeExactLocation?: boolean }) {
+export async function hydratePosts(
+  rows: DbRow[],
+  options?: { includeExactLocation?: boolean; viewerUserId?: string },
+) {
   if (!rows.length) return [];
 
   const postIds = rows.map((row) => row.id);
@@ -424,18 +568,27 @@ export async function hydratePosts(rows: DbRow[], options?: { includeExactLocati
   const commentCounts = countByPostId(supportData.commentRows);
   const raiseCounts = countByPostId(supportData.raiseRows);
   const reportCounts = countByPostId(supportData.reportRows);
+  const followCounts = countByPostId(supportData.followRows);
+  const followedPostIds = new Set(
+    options?.viewerUserId
+      ? supportData.followRows
+          .filter((row) => row.user_id === options.viewerUserId)
+          .map((row) => row.post_id)
+      : [],
+  );
 
   return rows.map((row) => {
     const category = categoryMap.get(row.category_id);
     const area = areaMap.get(row.area_id);
     const ai = aiByPost[row.id]?.[0];
+    const description = typeof row.description === "string" ? row.description : "";
 
     return {
       id: row.id,
       categoryId: row.category_id,
       categoryLabel: category?.display_name ?? "Uncategorized",
-      description: row.description,
-      descriptionExcerpt: toExcerpt(row.description),
+      description,
+      descriptionExcerpt: toExcerpt(description),
       sourceLanguage: row.source_language ?? null,
       displayLanguage: row.display_language ?? null,
       authorAlias: row.public_alias_snapshot ?? "anonymous",
@@ -445,8 +598,10 @@ export async function hydratePosts(rows: DbRow[], options?: { includeExactLocati
       priorityScore: Number(row.priority_score ?? 0),
       raiseCount: raiseCounts[row.id] ?? 0,
       commentCount: commentCounts[row.id] ?? 0,
+      followerCount: followCounts[row.id] ?? 0,
       reportCount: reportCounts[row.id] ?? 0,
       isAnonymous: Boolean(row.is_anonymous),
+      isFollowing: followedPostIds.has(row.id),
       media: mapMedia(mediaByPost[row.id] ?? []),
       createdAt: row.created_at,
       updatedAt: row.updated_at ?? null,
@@ -475,7 +630,10 @@ export async function hydratePosts(rows: DbRow[], options?: { includeExactLocati
   });
 }
 
-export async function fetchPostDetail(postId: string, options?: { includeExactLocation?: boolean }) {
+export async function fetchPostDetail(
+  postId: string,
+  options?: { includeExactLocation?: boolean; viewerUserId?: string },
+) {
   const { data, error } = await supabase
     .from("posts")
     .select(
@@ -537,8 +695,10 @@ export async function fetchFeed(request: Request) {
   if (status) query.eq("workflow_status", status);
 
   const { data, error } = await query;
+  const viewerUserId = request.user?.id;
   const posts = await hydratePosts(
     ensureSuccess(data ?? [], error, "Failed to load feed posts"),
+    viewerUserId ? { viewerUserId } : undefined,
   );
 
   const sortedPosts = [...posts].sort((left, right) => {
@@ -578,8 +738,28 @@ export async function fetchFeed(request: Request) {
   };
 }
 
-export async function fetchSummary(request: Request, areaId?: string) {
+async function fetchReportedQueue(limit = 5) {
+  const { data, error } = await supabase
+    .from("post_reports")
+    .select("post_id, created_at, review_status")
+    .eq("review_status", "pending_review")
+    .order("created_at", { ascending: false })
+    .limit(Math.max(limit * 4, limit));
+
+  const reportRows = ensureSuccess(data ?? [], error, "Failed to load reported posts") as DbRow[];
+  const orderedPostIds = Array.from(
+    new Set(reportRows.map((row) => row.post_id).filter(Boolean)),
+  ).slice(0, limit);
+
+  if (!orderedPostIds.length) return [];
+
+  const reportedRows = await fetchPostRowsByIds(orderedPostIds, { includeExactLocation: true });
+  return hydratePosts(reportedRows, { includeExactLocation: true });
+}
+
+export async function fetchSummary(request: Request, areaId?: string, institutionProfile?: DbRow) {
   const { from, to } = parseDateRange(request);
+  const access = institutionProfile ? resolveInstitutionAccess(institutionProfile.role) : null;
 
   const query = supabase
     .from("posts")
@@ -648,7 +828,10 @@ export async function fetchSummary(request: Request, areaId?: string) {
         new Date(right.created_at).getTime() - new Date(left.created_at).getTime(),
     )
     .slice(0, 5);
-  const topIssues = await hydratePosts(topRows, { includeExactLocation: true });
+  const [topIssues, reportedPosts] = await Promise.all([
+    hydratePosts(topRows, { includeExactLocation: true }),
+    access?.canViewReportedQueue ? fetchReportedQueue(5) : Promise.resolve(undefined),
+  ]);
 
   if (!areaId) {
     return {
@@ -657,7 +840,9 @@ export async function fetchSummary(request: Request, areaId?: string) {
       bySeverity,
       byCategory,
       byStatus,
+      ...(access ? { access: mapInstitutionAccess(access) } : {}),
       topIssues,
+      ...(reportedPosts ? { reportedPosts } : {}),
     };
   }
 
@@ -682,6 +867,7 @@ export async function fetchSummary(request: Request, areaId?: string) {
 
   return {
     area: mapArea(area),
+    ...(access ? { access: mapInstitutionAccess(access) } : {}),
     totals: {
       totalPosts: totals.totalPosts,
       unresolvedPosts: totals.unresolvedPosts,
@@ -718,7 +904,17 @@ export async function fetchAreas(request: Request) {
   if (type) query.eq("area_type", type);
 
   const { data, error } = await query;
-  const rows = ensureSuccess(data ?? [], error, "Failed to load areas");
+  if (error) {
+    logFallback("Falling back to built-in areas", error);
+    return getDefaultAreas({ q, parentAreaId, type, limit }).map((area) => ({
+      id: area.id,
+      name: area.name,
+      areaType: area.areaType,
+      parentAreaId: area.parentAreaId,
+    }));
+  }
+
+  const rows = data ?? [];
 
   if (rows.length) {
     return rows.map((row) => mapArea(row));
@@ -739,7 +935,17 @@ export async function fetchCategories() {
     .eq("is_active", true)
     .order("display_name", { ascending: true });
 
-  const rows = ensureSuccess(data ?? [], error, "Failed to load categories");
+  if (error) {
+    logFallback("Falling back to built-in categories", error);
+    return DEFAULT_CATEGORIES.map((category) => ({
+      id: category.slug,
+      slug: category.slug,
+      label: category.label,
+      severityHint: category.severityHint,
+    }));
+  }
+
+  const rows = data ?? [];
   if (rows.length) {
     return rows.map((row) => ({
       id: row.id,
@@ -787,6 +993,8 @@ export async function createProfile(userId: string, body: DbRow) {
 export async function createPost(userId: string, body: DbRow) {
   assert(typeof body.categoryId === "string", "categoryId is required");
   assert(typeof body.description === "string", "description is required");
+  const description = body.description.trim();
+  assert(description, "description is required");
 
   const profile = await requireProfile(userId);
   const categoryId = await resolveCategoryId(body.categoryId);
@@ -819,6 +1027,20 @@ export async function createPost(userId: string, body: DbRow) {
     sanitizedAreaLabel = areaLabel;
   }
 
+  const locationMode =
+    body.location?.mode === "auto_detected" ||
+    body.location?.mode === "manual" ||
+    body.location?.mode === "none"
+      ? body.location.mode
+      : "none";
+
+  await assertPostIsNotSpam({
+    description,
+    locationMode,
+    locationLabel: sanitizedAreaLabel,
+    ...(typeof body.categoryId === "string" ? { categoryHint: body.categoryId } : {}),
+  });
+
   const { data, error } = await supabase
     .from("posts")
     .insert({
@@ -826,7 +1048,7 @@ export async function createPost(userId: string, body: DbRow) {
       category_id: categoryId,
       area_id: areaId,
       public_alias_snapshot: profile.public_alias,
-      description: body.description.trim(),
+      description,
       source_language: body.sourceLanguage ?? profile.preferred_language ?? "en",
       display_language:
         Array.isArray(body.translateTargets) && body.translateTargets[0]
@@ -946,6 +1168,52 @@ export async function toggleRaise(userId: string, postId: string) {
   };
 }
 
+export async function toggleFollow(userId: string, postId: string) {
+  await fetchPostDetail(postId);
+
+  const existingFollowResult = await supabase
+    .from("post_follows")
+    .select("id")
+    .eq("post_id", postId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const existingFollow = ensureSuccess(
+    existingFollowResult.data,
+    existingFollowResult.error,
+    "Failed to check follow state",
+  );
+
+  let following = false;
+  if (existingFollow?.id) {
+    const { error } = await supabase
+      .from("post_follows")
+      .delete()
+      .eq("id", existingFollow.id);
+    ensureSuccess(null, error, "Failed to remove follow");
+  } else {
+    const { error } = await supabase.from("post_follows").insert({
+      post_id: postId,
+      user_id: userId,
+    });
+    ensureSuccess(null, error, "Failed to create follow");
+    following = true;
+  }
+
+  const { count, error } = await supabase
+    .from("post_follows")
+    .select("*", { count: "exact", head: true })
+    .eq("post_id", postId);
+
+  ensureSuccess(null, error, "Failed to count follows");
+
+  return {
+    postId,
+    following,
+    followerCount: count ?? 0,
+  };
+}
+
 export async function createReport(userId: string, postId: string, body: DbRow) {
   assert(typeof body.reasonCode === "string", "reasonCode is required");
   await fetchPostDetail(postId);
@@ -972,19 +1240,35 @@ export async function createReport(userId: string, postId: string, body: DbRow) 
   };
 }
 
-export async function fetchInstitutionPostDetail(postId: string) {
-  const post = await fetchPostDetail(postId, { includeExactLocation: true });
+export async function fetchInstitutionPostDetail(postId: string, institutionProfile: DbRow) {
+  const access = resolveInstitutionAccess(institutionProfile.role);
+  if (!access) {
+    throw new ForbiddenError("Institution access required");
+  }
+
+  const [postRow] = await fetchPostRowsByIds([postId], { includeExactLocation: true });
+  if (!postRow) {
+    throw new NotFoundError("Post not found");
+  }
+
+  const [post] = await hydratePosts([postRow], { includeExactLocation: true });
   const reportRowsResult = await supabase
     .from("post_reports")
-    .select("created_at")
+    .select("id, reason_code, notes, review_status, created_at")
     .eq("post_id", postId)
     .order("created_at", { ascending: false });
-  const caseViewResult = await supabase
+  let caseViewQuery = supabase
     .from("institution_case_views")
-    .select("organization_id, response_notes")
+    .select("organization_id, case_status, response_notes, updated_at")
     .eq("post_id", postId)
     .limit(1)
-    .maybeSingle();
+    .order("updated_at", { ascending: false });
+
+  if (access.scope === "organization" && institutionProfile.organization_id) {
+    caseViewQuery = caseViewQuery.eq("organization_id", institutionProfile.organization_id);
+  }
+
+  const caseViewResult = await caseViewQuery.maybeSingle();
 
   const reportRows = ensureSuccess(
     reportRowsResult.data ?? [],
@@ -999,20 +1283,234 @@ export async function fetchInstitutionPostDetail(postId: string) {
   const organizationMap = await fetchOrganizationsByIds(
     caseView?.organization_id ? [caseView.organization_id] : [],
   );
+  const pendingReports = reportRows.filter((row) => row.review_status === "pending_review");
+  const actionedReports = reportRows.filter((row) =>
+    ["actioned", "escalated"].includes(row.review_status),
+  );
 
   return {
     ...post,
+    access: mapInstitutionAccess(access),
     moderationState: {
-      contentStatus: reportRows.length ? "under_review" : "visible",
-      reviewState: reportRows.length ? "pending_review" : "clean",
+      contentStatus: pendingReports.length
+        ? "under_review"
+        : actionedReports.length
+          ? "hidden"
+          : "visible",
+      reviewState: pendingReports.length
+        ? "pending_review"
+        : actionedReports.length
+          ? "actioned"
+          : reportRows.length
+            ? "flagged"
+            : "clean",
       reportCount: reportRows.length,
       flaggedAt: reportRows[0]?.created_at ?? null,
     },
+    caseStatus: caseView?.case_status ?? null,
     internalNotes: caseView?.response_notes ?? null,
     assignedOrganization: caseView?.organization_id
       ? mapOrganization(organizationMap.get(caseView.organization_id))
       : null,
+    ...(access.canReviewReports
+      ? {
+          reports: reportRows.map((row) => ({
+            id: row.id,
+            reasonCode: row.reason_code,
+            notes: row.notes ?? null,
+            reviewStatus: row.review_status ?? "pending_review",
+            createdAt: row.created_at,
+          })),
+        }
+      : {}),
   };
+}
+
+export async function updateInstitutionPost(
+  userId: string,
+  postId: string,
+  body: DbRow,
+  institutionProfile?: DbRow,
+) {
+  const profile = institutionProfile ?? (await requireInstitutionProfile(userId));
+  const access = resolveInstitutionAccess(profile.role);
+
+  if (!access) {
+    throw new ForbiddenError("Institution access required");
+  }
+
+  const workflowStatus =
+    body.workflowStatus === undefined
+      ? undefined
+      : assertEnumValue(body.workflowStatus, WORKFLOW_STATUSES, "workflowStatus");
+  const caseStatus =
+    body.caseStatus === undefined
+      ? undefined
+      : assertEnumValue(body.caseStatus, CASE_STATUSES, "caseStatus");
+  const reportReviewStatus =
+    body.reportReviewStatus === undefined
+      ? undefined
+      : assertEnumValue(
+          body.reportReviewStatus,
+          REPORT_REVIEW_STATUSES,
+          "reportReviewStatus",
+        );
+  const internalNotes =
+    body.internalNotes === undefined
+      ? undefined
+      : body.internalNotes === null
+        ? null
+        : typeof body.internalNotes === "string"
+          ? body.internalNotes.trim()
+          : assert(false, "internalNotes must be a string or null");
+  const assignedOrganizationId =
+    body.assignedOrganizationId === undefined
+      ? undefined
+      : assertUuid(body.assignedOrganizationId, "assignedOrganizationId");
+  const changeReason =
+    typeof body.changeReason === "string" && body.changeReason.trim()
+      ? body.changeReason.trim()
+      : null;
+
+  assert(
+    workflowStatus !== undefined ||
+      caseStatus !== undefined ||
+      internalNotes !== undefined ||
+      reportReviewStatus !== undefined ||
+      assignedOrganizationId !== undefined,
+    "At least one institution update is required",
+  );
+
+  if (workflowStatus !== undefined && !access.allowedWorkflowStatuses.includes(workflowStatus)) {
+    throw new ForbiddenError("This role cannot change the post workflow to the requested status");
+  }
+
+  if (
+    (caseStatus !== undefined || internalNotes !== undefined) &&
+    !(access.canUpdateCaseStatus || access.canUpdateCaseNotes)
+  ) {
+    throw new ForbiddenError("This role cannot update institution case details");
+  }
+
+  if (caseStatus !== undefined && !access.canUpdateCaseStatus) {
+    throw new ForbiddenError("This role cannot update institution case status");
+  }
+
+  if (internalNotes !== undefined && !access.canUpdateCaseNotes) {
+    throw new ForbiddenError("This role cannot update institution case notes");
+  }
+
+  if (reportReviewStatus !== undefined && !access.canReviewReports) {
+    throw new ForbiddenError("Only admins can review reported posts");
+  }
+
+  if (assignedOrganizationId !== undefined && !access.canAssignOrganization) {
+    throw new ForbiddenError("Only admins can reassign institution ownership");
+  }
+
+  const postResult = await supabase
+    .from("posts")
+    .select("id, workflow_status")
+    .eq("id", postId)
+    .maybeSingle();
+  const post = ensureSuccess(postResult.data, postResult.error, "Failed to load post");
+
+  if (!post) {
+    throw new NotFoundError("Post not found");
+  }
+
+  const now = new Date().toISOString();
+
+  if (workflowStatus !== undefined && workflowStatus !== post.workflow_status) {
+    const updateResult = await supabase
+      .from("posts")
+      .update({
+        workflow_status: workflowStatus,
+        updated_at: now,
+      })
+      .eq("id", postId);
+    ensureSuccess(null, updateResult.error, "Failed to update post workflow");
+
+    const historyResult = await supabase.from("post_status_history").insert({
+      post_id: postId,
+      changed_by_profile_id: userId,
+      from_status: post.workflow_status ?? null,
+      to_status: workflowStatus,
+      change_reason: changeReason ?? "institution_update",
+    });
+    ensureSuccess(null, historyResult.error, "Failed to record post status history");
+  }
+
+  if (
+    caseStatus !== undefined ||
+    internalNotes !== undefined ||
+    assignedOrganizationId !== undefined
+  ) {
+    const organizationId =
+      assignedOrganizationId ?? profile.organization_id ?? undefined;
+
+    assert(
+      organizationId,
+      "An organization assignment is required before updating institution case details",
+    );
+
+    const [organization] = await Promise.all([
+      fetchOrganizationsByIds([organizationId]),
+    ]);
+    assert(organization.has(organizationId), "assignedOrganizationId is not recognized");
+
+    const existingCaseViewResult = await supabase
+      .from("institution_case_views")
+      .select("id, case_status, response_notes")
+      .eq("post_id", postId)
+      .eq("organization_id", organizationId)
+      .limit(1)
+      .maybeSingle();
+    const existingCaseView = ensureSuccess(
+      existingCaseViewResult.data,
+      existingCaseViewResult.error,
+      "Failed to load institution case view",
+    );
+
+    if (existingCaseView?.id) {
+      const caseUpdateResult = await supabase
+        .from("institution_case_views")
+        .update({
+          profile_id: userId,
+          case_status: caseStatus ?? existingCaseView.case_status ?? "triage",
+          response_notes:
+            internalNotes !== undefined
+              ? internalNotes
+              : existingCaseView.response_notes ?? null,
+          updated_at: now,
+          last_viewed_at: now,
+        })
+        .eq("id", existingCaseView.id);
+      ensureSuccess(null, caseUpdateResult.error, "Failed to update institution case view");
+    } else {
+      const caseInsertResult = await supabase.from("institution_case_views").insert({
+        id: randomUUID(),
+        post_id: postId,
+        profile_id: userId,
+        organization_id: organizationId,
+        case_status: caseStatus ?? "triage",
+        response_notes: internalNotes ?? null,
+        updated_at: now,
+        last_viewed_at: now,
+      });
+      ensureSuccess(null, caseInsertResult.error, "Failed to create institution case view");
+    }
+  }
+
+  if (reportReviewStatus !== undefined) {
+    const reviewResult = await supabase
+      .from("post_reports")
+      .update({ review_status: reportReviewStatus })
+      .eq("post_id", postId);
+    ensureSuccess(null, reviewResult.error, "Failed to update report review status");
+  }
+
+  return fetchInstitutionPostDetail(postId, profile);
 }
 
 export { assertUuid, parsePagination };

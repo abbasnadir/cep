@@ -195,3 +195,66 @@ a {
   font-weight: 600;
   letter-spacing: 0.04em;
 }
+
+.social-hero {
+  background:
+    radial-gradient(circle at top left, rgba(34, 211, 238, 0.2), transparent 30rem),
+    radial-gradient(circle at 85% 10%, rgba(56, 189, 248, 0.14), transparent 22rem),
+    linear-gradient(180deg, rgba(10, 16, 25, 0.96), rgba(6, 11, 18, 0.92));
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(20px);
+}
+
+.social-card {
+  background:
+    radial-gradient(circle at top right, rgba(34, 211, 238, 0.08), transparent 18rem),
+    linear-gradient(180deg, rgba(12, 17, 24, 0.95), rgba(8, 12, 18, 0.9));
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.social-avatar {
+  display: inline-flex;
+  height: 3rem;
+  width: 3rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1rem;
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  background:
+    radial-gradient(circle at top, rgba(34, 211, 238, 0.24), transparent 80%),
+    rgba(255, 255, 255, 0.04);
+  color: #d8fbff;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.social-metric {
+  border: 1px solid var(--line);
+  border-radius: 1.35rem;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 1rem;
+}
+
+.interaction-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: #cbd5e1;
+  padding: 0.65rem 0.95rem;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.group:hover .interaction-pill {
+  border-color: rgba(34, 211, 238, 0.24);
+  background: rgba(34, 211, 238, 0.08);
+  color: white;
+}

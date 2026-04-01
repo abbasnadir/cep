@@ -11,10 +11,11 @@ This document separates what the platform stores permanently from what it derive
 - Problem categories and status taxonomy
 - Posts with author linkage, area linkage, sanitized location labels, exact coordinates, language metadata, and publish state
 - Media metadata for uploaded images or videos
-- Comments, raises, and abuse reports
+- Comments, raises, follows, and abuse reports
 - Post lifecycle history such as open, acknowledged, in progress, resolved, and rejected
 - Institution case-tracking and ownership metadata
 - Audit timestamps for every mutable entity
+- Role-scoped institution permissions for case handling, workflow control, and moderation review
 
 ## Persisted AI And Moderation Data
 
@@ -23,6 +24,7 @@ This document separates what the platform stores permanently from what it derive
 - Translated text and normalized language metadata
 - Moderation state for uploaded media
 - Abuse report reasons, reporter id, and review status
+- Institution-side report review outcomes such as pending review, dismissed, actioned, and escalated
 - Model metadata such as provider, version, and last processed timestamp
 
 ## Derived Or Aggregated Data
@@ -30,6 +32,7 @@ This document separates what the platform stores permanently from what it derive
 - Feed priority score
 - Area relevance score used for ranking
 - Per-post engagement counters such as comment count and raise count
+- Per-post follow counters and viewer-specific follow state
 - Daily or periodic summary rows for dashboards
 - Institution-facing overview metrics by area, category, status, and severity
 - Cached or materialized slices for trending or unresolved issues
@@ -51,5 +54,7 @@ This document separates what the platform stores permanently from what it derive
 - Row-level security policies should distinguish:
   - public-readable post fields
   - citizen-owned write access
+  - NGO and government case-write access within organization scope
+  - admin-only moderation and report-review access
   - institution-only read access
   - service-role-only enrichment and aggregation writes

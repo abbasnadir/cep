@@ -8,6 +8,7 @@ import {
   fetchComments,
   fetchPostDetail,
   parsePagination,
+  toggleFollow,
   toggleRaise,
 } from "../lib/civicData.js";
 
@@ -27,19 +28,21 @@ const postsRouter: RouterObject = {
     {
       method: "get",
       props: "/:postId",
-      authorization: "required",
+      authorization: "optional",
       rateLimit: "read",
       keyType: "default",
       handler: async (req: Request, res: Response) => {
         const postId = assertUuid(req.params.postId, "postId");
-        const post = await fetchPostDetail(postId);
+        const post = await fetchPostDetail(postId, {
+          viewerUserId: req.user?.id,
+        });
         res.status(200).json(post);
       },
     },
     {
       method: "get",
       props: "/:postId/comments",
-      authorization: "required",
+      authorization: "none",
       rateLimit: "read",
       keyType: "default",
       handler: async (req: Request, res: Response) => {
@@ -70,6 +73,18 @@ const postsRouter: RouterObject = {
       handler: async (req: Request, res: Response) => {
         const postId = assertUuid(req.params.postId, "postId");
         const result = await toggleRaise(req.user.id, postId);
+        res.status(200).json(result);
+      },
+    },
+    {
+      method: "post",
+      props: "/:postId/follows",
+      authorization: "required",
+      rateLimit: "gameplay",
+      keyType: "user",
+      handler: async (req: Request, res: Response) => {
+        const postId = assertUuid(req.params.postId, "postId");
+        const result = await toggleFollow(req.user.id, postId);
         res.status(200).json(result);
       },
     },
