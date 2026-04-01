@@ -1,6 +1,5 @@
 "use client";
-
-import type { FormEvent } from "react";
+import type { ChangeEvent, FormEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -8,6 +7,7 @@ import { useAuth } from "@/components/auth-provider";
 import { StateBlock } from "@/components/state-block";
 import { apiFetch } from "@/lib/api";
 import { FALLBACK_AREAS, ISSUE_CATEGORIES } from "@/lib/catalog";
+import { supabase } from "@/lib/supabaseClient";
 import type {
   AreaListResponse,
   AreaRef,
@@ -15,6 +15,7 @@ import type {
   CategoryListResponse,
   PostCreateRequest,
   PostDetail,
+  UploadableMedia,
 } from "@/lib/types";
 
 function formatAreaOptionLabel(area: AreaRef) {
@@ -47,6 +48,54 @@ const composerMetaCache = new Map<string, Promise<ComposerMeta>>();
 const GEO_FAST_TIMEOUT_MS = 8000;
 const GEO_STANDARD_TIMEOUT_MS = 20000;
 const GEO_WATCH_TIMEOUT_MS = 45000;
+const POST_IMAGE_BUCKET = "post_images";
+const MAX_IMAGE_UPLOADS = 4;
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+
+type SelectedImage = {
+  id: string;
+  file: File;
+  previewUrl: string;
+};
+
+function sanitizeFilename(filename: string) {
+  const normalized = filename.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-");
+  return normalized || "upload.jpg";
+}
+
+async function uploadPostImages(userId: string, images: SelectedImage[]) {
+  const uploaded: UploadableMedia[] = [];
+
+  for (const image of images) {
+    const storagePath = `${userId}/${crypto.randomUUID()}-${sanitizeFilename(image.file.name)}`;
+    const uploadResult = await supabase.storage.from(POST_IMAGE_BUCKET).upload(storagePath, image.file, {
+      cacheControl: "3600",
+      contentType: image.file.type || "image/jpeg",
+      upsert: false,
+    });
+
+    if (uploadResult.error) {
+      throw new Error(`Image upload failed: ${uploadResult.error.message}`);
+    }
+
+    uploaded.push({
+      storagePath,
+      mediaType: "image",
+    });
+  }
+
+  return uploaded;
+}
+
+async function removeUploadedImages(images: UploadableMedia[]) {
+  const paths = images.map((image) => image.storagePath).filter(Boolean);
+  if (!paths.length) return;
+
+  const removeResult = await supabase.storage.from(POST_IMAGE_BUCKET).remove(paths);
+  if (removeResult.error) {
+    console.warn(`Failed to clean up uploaded images: ${removeResult.error.message}`);
+  }
+}
 
 async function loadComposerMeta(accessToken: string): Promise<ComposerMeta> {
   const [categoryResponse, areaResponse] = await Promise.allSettled([
@@ -132,6 +181,8 @@ export default function NewPostPage() {
   const [usingFallbackAreas, setUsingFallbackAreas] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
   const [geoPoint, setGeoPoint] = useState<{
     latitude: number;
     longitude: number;
@@ -143,6 +194,7 @@ export default function NewPostPage() {
   const geoRequestTimeoutRef = useRef<number | null>(null);
   const geoWatchIdRef = useRef<number | null>(null);
   const geoRequestIdRef = useRef(0);
+  const selectedImagesRef = useRef<SelectedImage[]>([]);
   const [form, setForm] = useState({
     categoryId: "",
     description: "",
@@ -408,11 +460,75 @@ export default function NewPostPage() {
   }, [cancelGeoRequest]);
 
   useEffect(() => {
+    selectedImagesRef.current = selectedImages;
+  }, [selectedImages]);
+
+  useEffect(() => {
+    return () => {
+      for (const image of selectedImagesRef.current) {
+        URL.revokeObjectURL(image.previewUrl);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (form.locationMode !== "auto_detected") {
       cancelGeoRequest();
       return;
     }
   }, [cancelGeoRequest, form.locationMode]);
+
+  function handleImageSelection(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+
+    if (!files.length) {
+      return;
+    }
+
+    const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+    if (imageFiles.length !== files.length) {
+      setError("Only image uploads are supported for posts right now.");
+      return;
+    }
+
+    const oversized = imageFiles.find((file) => file.size > MAX_IMAGE_BYTES);
+    if (oversized) {
+      setError(`Each image must be smaller than ${Math.round(MAX_IMAGE_BYTES / 1024 / 1024)} MB.`);
+      return;
+    }
+
+    setError(null);
+    setSelectedImages((current) => {
+      const remainingSlots = Math.max(0, MAX_IMAGE_UPLOADS - current.length);
+      const nextFiles = imageFiles.slice(0, remainingSlots);
+
+      if (!nextFiles.length) {
+        setError(`You can attach up to ${MAX_IMAGE_UPLOADS} images per post.`);
+        return current;
+      }
+
+      return [
+        ...current,
+        ...nextFiles.map((file) => ({
+          id: crypto.randomUUID(),
+          file,
+          previewUrl: URL.createObjectURL(file),
+        })),
+      ];
+    });
+  }
+
+  function handleRemoveImage(imageId: string) {
+    setSelectedImages((current) => {
+      const image = current.find((item) => item.id === imageId);
+      if (image) {
+        URL.revokeObjectURL(image.previewUrl);
+      }
+
+      return current.filter((item) => item.id !== imageId);
+    });
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -449,6 +565,7 @@ export default function NewPostPage() {
     setSubmitting(true);
     setError(null);
     const accessToken = session.access_token;
+    let uploadedImages: UploadableMedia[] = [];
 
     const payload: PostCreateRequest = {
       categoryId: form.categoryId,
@@ -471,20 +588,34 @@ export default function NewPostPage() {
     };
 
     try {
+      if (selectedImages.length) {
+        setUploadingImages(true);
+        uploadedImages = await uploadPostImages(session.user.id, selectedImages);
+        payload.media = uploadedImages;
+      }
+
       const response = await apiFetch<PostDetail>("/posts", {
         method: "POST",
         accessToken,
         body: JSON.stringify(payload),
       });
 
+      for (const image of selectedImages) {
+        URL.revokeObjectURL(image.previewUrl);
+      }
+      setSelectedImages([]);
       router.push(`/posts/${response.id}`);
     } catch (submitError) {
+      if (uploadedImages.length) {
+        await removeUploadedImages(uploadedImages);
+      }
       setError(
         submitError instanceof Error
           ? submitError.message
           : "Unable to publish the post.",
       );
     } finally {
+      setUploadingImages(false);
       setSubmitting(false);
     }
   }
@@ -515,10 +646,12 @@ export default function NewPostPage() {
                 aria-hidden="true"
               />
               <p className="mt-4 text-sm font-semibold uppercase tracking-[0.24em] text-cyan-100/80">
-                Checking for spam
+                {uploadingImages ? "Uploading images" : "Checking for spam"}
               </p>
               <p className="mt-3 text-sm leading-7 text-slate-200">
-                The backend is checking this post with Ollama before it is created. This can take a few seconds.
+                {uploadingImages
+                  ? "Your selected images are being uploaded to Supabase Storage before the post is created."
+                  : "The backend is checking this post with Ollama before it is created. This can take a few seconds."}
               </p>
             </div>
           </div>
@@ -528,8 +661,7 @@ export default function NewPostPage() {
           Publish a new civic issue
         </h1>
         <p className="mt-3 text-sm leading-7 text-slate-300">
-          This page submits directly to the backend API. Media upload can be added next
-          once the Supabase Storage flow is finalized.
+          Add a description, optional location, and up to four supporting images for the issue.
         </p>
 
         {metaError && (
@@ -547,7 +679,9 @@ export default function NewPostPage() {
         <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
           {submitting && (
             <div className="rounded-[24px] border border-cyan-300/20 bg-cyan-400/10 p-4 text-sm text-cyan-50">
-              The backend is checking your post for spam before it allows creation.
+              {uploadingImages
+                ? "Uploading images to storage before the post is created."
+                : "The backend is checking your post for spam before it allows creation."}
             </div>
           )}
 
@@ -609,6 +743,55 @@ export default function NewPostPage() {
               placeholder="Describe what is happening, who is affected, and why it needs attention."
             />
           </label>
+
+          <div className="block">
+            <span className="label-text">Images</span>
+            <div className="mt-2 rounded-[18px] border border-dashed border-white/10 bg-white/5 p-4">
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleImageSelection}
+                disabled={submitting || selectedImages.length >= MAX_IMAGE_UPLOADS}
+              />
+              <p className="mt-2 text-xs leading-6 text-slate-400">
+                Upload up to {MAX_IMAGE_UPLOADS} images. Each image can be up to {Math.round(MAX_IMAGE_BYTES / 1024 / 1024)} MB.
+              </p>
+
+              {selectedImages.length > 0 && (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {selectedImages.map((image) => (
+                    <div
+                      key={image.id}
+                      className="rounded-[16px] border border-white/10 bg-white/5 p-3"
+                    >
+                      <img
+                        src={image.previewUrl}
+                        alt={image.file.name}
+                        className="h-40 w-full rounded-[12px] object-cover"
+                      />
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-white">{image.file.name}</p>
+                          <p className="text-xs text-slate-400">
+                            {(image.file.size / 1024 / 1024).toFixed(1)} MB
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className="button-secondary"
+                          onClick={() => handleRemoveImage(image.id)}
+                          disabled={submitting}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <label className="block">

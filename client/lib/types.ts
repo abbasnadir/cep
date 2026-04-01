@@ -240,6 +240,11 @@ export interface ComposerState {
   mediaFiles: File[];
 }
 
+export interface UploadableMedia {
+  storagePath: string;
+  mediaType: "image" | "video";
+}
+
 export interface InstitutionPostUpdateRequest {
   workflowStatus?: PostCard["workflowStatus"];
   caseStatus?: "triage" | "investigating" | "responding" | "monitoring" | "closed";

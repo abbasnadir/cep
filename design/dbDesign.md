@@ -191,11 +191,14 @@ erDiagram
 - `auth_users` represents Supabase Auth identities and is managed by Supabase.
 - `posts.latitude` and `posts.longitude` are sensitive and should never be exposed by public APIs.
 - `post_ai_assessments` is system-managed and updated by asynchronous enrichment jobs.
+- `post_media.storage_bucket` should point to the public Supabase bucket `post_images`.
+- `post_media.storage_path` should use a user-scoped folder convention such as `<auth_user_id>/<uuid>-<filename>` so bucket RLS can validate ownership on upload and delete.
 - `profiles.role` drives responder capabilities:
   - `ngo_staff` can maintain organization-scoped case status and response notes
   - `government_staff` can additionally update public post workflow status
   - `admin` can additionally review abuse reports and reassign institution ownership
 - `post_reports.review_status` should support at least `pending_review`, `dismissed`, `actioned`, and `escalated`.
+- Image-specific moderation can reuse `post_reports` by storing an explanatory `notes` value such as `inappropriate_image`.
 - `institution_case_views` should be keyed operationally by `(post_id, organization_id)` even if the physical uniqueness rule is added later.
 - `daily_post_summaries` can be implemented as a physical table refreshed by workers or as a materialized view, depending on operational needs.
 - If stored as a table, enforce uniqueness on `(summary_date, area_id, category_id, workflow_status, severity_level)`.

@@ -8,13 +8,13 @@
 - Ranked issue feed with filters for area, category, status, and sort mode
 - Issue post creation with:
   - text description
-  - optional image upload
+  - optional image upload to Supabase Storage
   - auto-detected or manual location
   - optional speech-to-text helper
   - optional translation helper
   - problem category selection
 - Public post detail with sanitized area labels, engagement counts, and enrichment state
-- Raise, comment, and report actions on posts
+- Raise, comment, report post, and report image actions on posts
 - Institution-only post detail with exact coordinates, AI severity breakdown, and moderation state
 - Institution summary views for counts by status, area, category, severity, and time window
 - Role-tiered institution dashboard access:

@@ -41,6 +41,7 @@ export function PostCardView({
   const severity = post.aiAssessment?.severity ?? "pending";
   const followLabel = post.isFollowing ? "Following" : "Follow issue";
   const visibleDescription = post.description.trim() || post.descriptionExcerpt;
+  const leadImage = post.media.find((item) => item.mediaType === "image");
 
   return (
     <article className="social-card overflow-hidden rounded-[20px] border border-white/10 p-5">
@@ -76,6 +77,17 @@ export function PostCardView({
               </h2>
             </Link>
             <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-300">{visibleDescription}</p>
+
+            {leadImage && (
+              <Link href={`/posts/${post.id}`} className="mt-4 block max-w-3xl">
+                <img
+                  src={leadImage.url}
+                  alt={`Attached image for ${post.categoryLabel}`}
+                  className="h-56 w-full rounded-[16px] border border-white/10 object-cover"
+                  loading="lazy"
+                />
+              </Link>
+            )}
 
             {post.aiAssessment?.summary && (
               <div className="mt-4 rounded-[14px] border border-cyan-400/15 bg-cyan-400/8 px-4 py-3 text-sm leading-7 text-cyan-50">

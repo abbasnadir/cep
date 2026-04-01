@@ -31,6 +31,7 @@ export default function PostDetailPage() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentBody, setCommentBody] = useState("");
   const [reportReason, setReportReason] = useState<ReportCreateRequest["reasonCode"]>("spam");
+  const [reportNotice, setReportNotice] = useState<string | null>(null);
   const [loadingPost, setLoadingPost] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -114,6 +115,7 @@ export default function PostDetailPage() {
         raiseCount: response.raiseCount,
       });
     } catch (raiseError) {
+      setReportNotice(null);
       setError(
         raiseError instanceof Error ? raiseError.message : "Unable to raise this issue.",
       );
@@ -141,6 +143,7 @@ export default function PostDetailPage() {
         followerCount: response.followerCount,
       });
     } catch (followError) {
+      setReportNotice(null);
       setError(
         followError instanceof Error ? followError.message : "Unable to follow this issue.",
       );
@@ -180,6 +183,7 @@ export default function PostDetailPage() {
           : current,
       );
     } catch (commentError) {
+      setReportNotice(null);
       setError(
         commentError instanceof Error ? commentError.message : "Unable to add the comment.",
       );
@@ -188,7 +192,7 @@ export default function PostDetailPage() {
     }
   }
 
-  async function handleReport() {
+  async function submitReport(payload: ReportCreateRequest, successMessage: string) {
     if (!session?.access_token || !params.postId) {
       setError("Sign in to report this post.");
       return;
@@ -199,16 +203,32 @@ export default function PostDetailPage() {
       await apiFetch<unknown>(`/posts/${params.postId}/reports`, {
         method: "POST",
         accessToken: session.access_token,
-        body: JSON.stringify({ reasonCode: reportReason }),
+        body: JSON.stringify(payload),
       });
-      setError("Report submitted.");
+      setError(null);
+      setReportNotice(successMessage);
     } catch (reportError) {
+      setReportNotice(null);
       setError(
         reportError instanceof Error ? reportError.message : "Unable to submit the report.",
       );
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleReport() {
+    await submitReport({ reasonCode: reportReason }, "Post report submitted.");
+  }
+
+  async function handleReportImage() {
+    await submitReport(
+      {
+        reasonCode: "abuse",
+        notes: "inappropriate_image",
+      },
+      "Image report submitted for review.",
+    );
   }
 
   if (loadingPost) {
@@ -253,6 +273,12 @@ export default function PostDetailPage() {
           </div>
         )}
 
+        {reportNotice && post && (
+          <div className="rounded-[24px] border border-emerald-400/30 bg-emerald-400/10 p-4 text-sm text-emerald-900">
+            {reportNotice}
+          </div>
+        )}
+
         <div className="social-card rounded-[34px] border border-white/10 p-6">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div className="flex min-w-0 items-start gap-4">
@@ -288,6 +314,26 @@ export default function PostDetailPage() {
             {post.descriptionExcerpt}
           </h1>
           <p className="mt-5 text-base leading-8 text-slate-200">{post.description}</p>
+
+          {post.media.length > 0 && (
+            <div className="mt-6">
+              <p className="label-text">Images</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {post.media
+                  .filter((media) => media.mediaType === "image")
+                  .map((media) => (
+                    <a key={media.id} href={media.url} target="_blank" rel="noreferrer" className="block">
+                      <img
+                        src={media.url}
+                        alt={`Attached image for ${post.categoryLabel}`}
+                        className="h-64 w-full rounded-[18px] border border-white/10 object-cover"
+                        loading="lazy"
+                      />
+                    </a>
+                  ))}
+              </div>
+            </div>
+          )}
 
           {post.aiAssessment?.summary && (
             <div className="mt-6 rounded-[24px] border border-cyan-400/20 bg-cyan-400/8 p-4">
@@ -405,6 +451,16 @@ export default function PostDetailPage() {
             <button type="button" onClick={handleReport} disabled={busy || !session} className="button-secondary">
               {session ? "Report post" : "Sign in to report"}
             </button>
+            {post.media.some((media) => media.mediaType === "image") && (
+              <button
+                type="button"
+                onClick={handleReportImage}
+                disabled={busy || !session}
+                className="button-secondary"
+              >
+                {session ? "Report image" : "Sign in to report image"}
+              </button>
+            )}
             {!session && (
               <Link href="/login" className="button-primary">
                 Log in

@@ -31,12 +31,13 @@ flowchart TD
    - type a description
    - dictate with speech-to-text
    - choose a category
-   - attach media
+   - attach images that upload into their own Supabase Storage folder before the post is created
    - allow auto-detect location or select a location manually
    - translate to English or a local language if needed
 5. The post is saved immediately with `enrichment_status = pending`.
 6. The citizen can return to the feed, open the post detail page, comment, raise, or report other content.
-7. The public version of the post shows only a sanitized area label and anonymous alias snapshot.
+7. If a post includes images, the thread view renders them and offers a separate image-report action for inappropriate imagery.
+8. The public version of the post shows only a sanitized area label and anonymous alias snapshot.
 
 ## Institution Flow
 

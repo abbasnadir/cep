@@ -10,7 +10,7 @@ This document separates what the platform stores permanently from what it derive
 - Geography hierarchy for countries, states, cities, wards, and localities
 - Problem categories and status taxonomy
 - Posts with author linkage, area linkage, sanitized location labels, exact coordinates, language metadata, and publish state
-- Media metadata for uploaded images or videos
+- Media metadata for uploaded images or videos, including per-user storage paths in the `post_images` bucket
 - Comments, raises, follows, and abuse reports
 - Post lifecycle history such as open, acknowledged, in progress, resolved, and rejected
 - Institution case-tracking and ownership metadata
@@ -24,6 +24,7 @@ This document separates what the platform stores permanently from what it derive
 - Translated text and normalized language metadata
 - Moderation state for uploaded media
 - Abuse report reasons, reporter id, and review status
+- Report notes that can distinguish whole-post abuse reports from image-specific reports
 - Institution-side report review outcomes such as pending review, dismissed, actioned, and escalated
 - Model metadata such as provider, version, and last processed timestamp
 

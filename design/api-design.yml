@@ -601,6 +601,7 @@ components:
             properties:
               storagePath:
                 type: string
+                description: Path inside the `post_images` bucket, normally prefixed with the authenticated user's id.
               mediaType:
                 type: string
                 enum: [image, video]
@@ -626,6 +627,7 @@ components:
         notes:
           type: string
           maxLength: 2000
+          description: Optional moderation context, including image-specific values such as `inappropriate_image`.
 
     InstitutionPostUpdateRequest:
       type: object

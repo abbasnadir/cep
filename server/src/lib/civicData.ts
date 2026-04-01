@@ -10,6 +10,7 @@ import { supabase } from "./supabaseClient.js";
 import { assertPostIsNotSpam } from "./spamFilter.js";
 
 type DbRow = Record<string, any>;
+const POST_MEDIA_BUCKET = "post_images";
 const APP_ROLES = new Set(["citizen", "ngo_staff", "government_staff", "admin"]);
 const INSTITUTION_ROLES = ["ngo_staff", "government_staff", "admin"] as const;
 const WORKFLOW_STATUSES = [
@@ -153,6 +154,35 @@ function mapInstitutionAccess(access: NonNullable<ReturnType<typeof resolveInsti
     canReviewReports: access.canReviewReports,
     canAssignOrganization: access.canAssignOrganization,
   };
+}
+
+function mergeCategoryRows(rows: DbRow[]) {
+  const merged = new Map<
+    string,
+    { id: string; slug: string; label: string; severityHint: string | null }
+  >();
+
+  for (const category of DEFAULT_CATEGORIES) {
+    merged.set(category.slug, {
+      id: category.slug,
+      slug: category.slug,
+      label: category.label,
+      severityHint: category.severityHint,
+    });
+  }
+
+  for (const row of rows) {
+    if (!row?.slug) continue;
+
+    merged.set(row.slug, {
+      id: row.id ?? row.slug,
+      slug: row.slug,
+      label: row.display_name ?? row.slug,
+      severityHint: row.severity_hint ?? null,
+    });
+  }
+
+  return Array.from(merged.values()).sort((left, right) => left.label.localeCompare(right.label));
 }
 
 function resolveAppRole(role: unknown) {
@@ -591,7 +621,7 @@ export async function hydratePosts(
       descriptionExcerpt: toExcerpt(description),
       sourceLanguage: row.source_language ?? null,
       displayLanguage: row.display_language ?? null,
-      authorAlias: row.public_alias_snapshot ?? "anonymous",
+      authorAlias: row.is_anonymous ? "anonymous" : row.public_alias_snapshot ?? "anonymous",
       area: mapArea(area, row.sanitized_area_label),
       workflowStatus: row.workflow_status ?? "open",
       enrichmentStatus: row.enrichment_status ?? "pending",
@@ -937,30 +967,10 @@ export async function fetchCategories() {
 
   if (error) {
     logFallback("Falling back to built-in categories", error);
-    return DEFAULT_CATEGORIES.map((category) => ({
-      id: category.slug,
-      slug: category.slug,
-      label: category.label,
-      severityHint: category.severityHint,
-    }));
+    return mergeCategoryRows([]);
   }
 
-  const rows = data ?? [];
-  if (rows.length) {
-    return rows.map((row) => ({
-      id: row.id,
-      slug: row.slug,
-      label: row.display_name,
-      severityHint: row.severity_hint ?? null,
-    }));
-  }
-
-  return DEFAULT_CATEGORIES.map((category) => ({
-    id: category.slug,
-    slug: category.slug,
-    label: category.label,
-    severityHint: category.severityHint,
-  }));
+  return mergeCategoryRows(data ?? []);
 }
 
 export async function createProfile(userId: string, body: DbRow) {
@@ -1074,7 +1084,7 @@ export async function createPost(userId: string, body: DbRow) {
     const { error: mediaError } = await supabase.from("post_media").insert(
       media.map((item: DbRow) => ({
         post_id: createdPost.id,
-        storage_bucket: "post-media",
+        storage_bucket: POST_MEDIA_BUCKET,
         storage_path: item.storagePath,
         media_type: item.mediaType,
         moderation_state: "visible",
