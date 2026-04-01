@@ -83,9 +83,9 @@ function InstitutionIssueActions({
 
   return (
     <div className="surface-muted rounded-[24px] border border-white/10 p-4">
-      <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-slate-400">
+      <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-slate-700">
         <span>{access.role.replace("_", " ")}</span>
-        <span className="text-slate-600">/</span>
+        <span className="text-slate-500">/</span>
         <span>{access.scope} scope</span>
       </div>
 
@@ -316,11 +316,11 @@ export default function InstitutionPage() {
         <div className="space-y-6">
           <div className="surface rounded-[32px] border border-white/10 p-6">
             <p className="label-text">Role access</p>
-            <div className="mt-4 rounded-[24px] border border-cyan-400/15 bg-cyan-400/8 p-5">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-100">
+            <div className="mt-4 rounded-[24px] border border-cyan-200 bg-cyan-50 p-5">
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-950">
                 {access.role.replace("_", " ")} / {access.scope} scope
               </p>
-              <div className="mt-4 space-y-3 text-sm leading-7 text-slate-200">
+              <div className="mt-4 space-y-3 text-sm leading-7 text-slate-700">
                 {capabilityLabels.map((capability) => (
                   <p key={capability}>{capability}</p>
                 ))}

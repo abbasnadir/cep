@@ -267,11 +267,11 @@ export default function PostDetailPage() {
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <span className="tag bg-cyan-400/15 text-cyan-200">{post.categoryLabel}</span>
-                  <span className="tag bg-white/8 text-slate-300">
+                  <span className="tag bg-cyan-100 text-cyan-900">{post.categoryLabel}</span>
+                  <span className="tag bg-slate-100 text-slate-900">
                     {post.workflowStatus.replace("_", " ")}
                   </span>
-                  <span className="tag bg-white/8 text-slate-300">{post.area.name}</span>
+                  <span className="tag bg-slate-100 text-slate-900">{post.area.name}</span>
                 </div>
               </div>
             </div>

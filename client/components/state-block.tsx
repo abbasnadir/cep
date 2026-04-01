@@ -12,14 +12,14 @@ export function StateBlock({
   actionHref?: string;
 }) {
   return (
-    <div className="surface rounded-[32px] border border-white/10 p-8">
+    <div className="surface rounded-[20px] border border-white/10 p-7">
       <p className="label-text">Status</p>
-      <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-white">
+      <h1 className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-white">
         {title}
       </h1>
-      <p className="mt-4 max-w-2xl text-sm leading-8 text-slate-300">{description}</p>
+      <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">{description}</p>
       {actionLabel && actionHref && (
-        <Link href={actionHref} className="button-primary mt-6">
+        <Link href={actionHref} className="button-primary mt-5">
           {actionLabel}
         </Link>
       )}

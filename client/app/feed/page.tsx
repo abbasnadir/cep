@@ -158,76 +158,59 @@ export default function FeedPage() {
 
   return (
     <section className="space-y-6">
-      <div className="social-hero overflow-hidden rounded-[36px] border border-white/10 p-6 md:p-8">
-        <div className="grid gap-8 xl:grid-cols-[1.25fr_0.75fr]">
+      <div className="social-hero overflow-hidden rounded-[22px] border border-white/10 p-6 md:p-7">
+        <div className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr] lg:items-end">
           <div>
             <p className="label-text">Public civic stream</p>
-            <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-[-0.05em] text-white md:text-6xl">
-              A live civic feed that feels active, local, and worth checking every day.
+            <h1 className="mt-3 max-w-4xl text-3xl font-semibold tracking-[-0.04em] text-white md:text-5xl">
+              See local issues clearly and act when you need to.
             </h1>
-            <p className="mt-5 max-w-2xl text-base leading-8 text-slate-200">
-              Browse public issue threads, track what people are talking about, and see
-              which local problems are gaining momentum. Guests can read everything.
-              Signing in unlocks posting, raising, commenting, and reporting.
+            <p className="mt-4 max-w-3xl text-base leading-7 text-slate-300">
+              Browse current reports, search by place or issue type, and open any thread for
+              more detail. The public can read freely. Accounts unlock posting, following,
+              comments, and reports.
             </p>
 
-            <div className="mt-7 flex flex-wrap gap-3">
+            <div className="mt-6 flex flex-wrap gap-3">
               <Link href={session ? "/posts/new" : "/register"} className="button-primary">
-                {session ? "Create a post" : "Join to participate"}
+                {session ? "Create post" : "Create an account"}
               </Link>
               <Link href="/institution" className="button-secondary">
-                Responder view
+                Institution dashboard
               </Link>
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-            <div className="surface-muted rounded-[28px] border border-white/10 p-5">
-              <p className="label-text">Trending now</p>
-              <p className="mt-3 text-2xl font-semibold text-white">
-                {feedStats.trendingCategory}
-              </p>
-              <p className="mt-2 text-sm leading-7 text-slate-300">
-                The current stream is clustering most around this issue area.
-              </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="surface-muted rounded-[16px] border border-white/10 p-4">
+              <p className="label-text">Open issues</p>
+              <p className="mt-2 text-2xl font-semibold text-white">{feedStats.openCount}</p>
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="surface-muted rounded-[24px] border border-white/10 p-4">
-                <p className="label-text">Open</p>
-                <p className="mt-2 text-2xl font-semibold text-white">{feedStats.openCount}</p>
-              </div>
-              <div className="surface-muted rounded-[24px] border border-white/10 p-4">
-                <p className="label-text">Raises</p>
-                <p className="mt-2 text-2xl font-semibold text-white">{feedStats.raiseTotal}</p>
-              </div>
-              <div className="surface-muted rounded-[24px] border border-white/10 p-4">
-                <p className="label-text">Comments</p>
-                <p className="mt-2 text-2xl font-semibold text-white">
-                  {feedStats.commentTotal}
-                </p>
-              </div>
+            <div className="surface-muted rounded-[16px] border border-white/10 p-4">
+              <p className="label-text">Most common category</p>
+              <p className="mt-2 text-lg font-semibold text-white">{feedStats.trendingCategory}</p>
             </div>
           </div>
         </div>
       </div>
 
       {!session && (
-        <div className="rounded-[26px] border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-50">
-          You are browsing in guest mode. You can view the full public feed and open posts,
-          but raising, commenting, reporting, and posting require an account.
+        <div className="rounded-[16px] border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-50">
+          You are browsing in guest mode. Reading is open to everyone, but posting and other
+          interactions require an account.
         </div>
       )}
 
       {error && !loadingFeed && (
-        <div className="rounded-[24px] border border-rose-400/30 bg-rose-400/10 p-4 text-sm text-rose-100">
+        <div className="rounded-[16px] border border-rose-400/30 bg-rose-400/10 p-4 text-sm text-rose-100">
           {error}
         </div>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]">
+      <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
         <aside className="space-y-5 xl:sticky xl:top-24 xl:self-start">
-          <div className="surface rounded-[30px] border border-white/10 p-5">
-            <p className="label-text">Explore</p>
+          <div className="surface rounded-[20px] border border-white/10 p-5">
+            <p className="label-text">Filter feed</p>
             <input
               className="field mt-4"
               value={search}
@@ -236,7 +219,7 @@ export default function FeedPage() {
             />
 
             <div className="mt-5">
-              <p className="label-text">Feed lane</p>
+              <p className="label-text">Sort by</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {sortOptions.map((option) => (
                   <button
@@ -253,7 +236,7 @@ export default function FeedPage() {
             </div>
 
             <div className="mt-5">
-              <p className="label-text">Status</p>
+              <p className="label-text">Issue status</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {statusOptions.map((option) => (
                   <button
@@ -268,19 +251,32 @@ export default function FeedPage() {
                 ))}
               </div>
             </div>
-          </div>
 
-          <div className="surface rounded-[30px] border border-white/10 p-5">
-            <p className="label-text">Pulse notes</p>
-            <div className="mt-4 space-y-4 text-sm leading-7 text-slate-300">
-              <p>The stream is designed to feel like a living social timeline, not a static archive.</p>
-              <p>Open any thread to read updates and community context.</p>
-              <p>Signed-in users can move issues upward by posting, commenting, and raising.</p>
+            <div className="mt-5 rounded-[14px] border border-white/10 bg-white/5 p-4 text-sm leading-7 text-slate-300">
+              Use search when you know the place or issue type. Use the status filters for a
+              faster scan of open or resolved items.
             </div>
           </div>
         </aside>
 
         <div className="space-y-4">
+          <div className="surface rounded-[20px] border border-white/10 p-5">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-[14px] border border-white/10 bg-white/5 p-4">
+                <p className="label-text">Open</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{feedStats.openCount}</p>
+              </div>
+              <div className="rounded-[14px] border border-white/10 bg-white/5 p-4">
+                <p className="label-text">Raises</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{feedStats.raiseTotal}</p>
+              </div>
+              <div className="rounded-[14px] border border-white/10 bg-white/5 p-4">
+                <p className="label-text">Comments</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{feedStats.commentTotal}</p>
+              </div>
+            </div>
+          </div>
+
           {loadingFeed ? (
             <StateBlock title="Loading feed" description="Pulling the public issue stream." />
           ) : error && !filteredFeed.length ? (
@@ -309,50 +305,6 @@ export default function FeedPage() {
             />
           )}
         </div>
-
-        <aside className="space-y-5 xl:sticky xl:top-24 xl:self-start">
-          <div className="surface rounded-[30px] border border-white/10 p-5">
-            <p className="label-text">Join the conversation</p>
-            <p className="mt-4 text-sm leading-7 text-slate-300">
-              Guests can read the civic stream. Create an account to raise issues, add
-              local context, and publish your own posts.
-            </p>
-            <div className="mt-5 flex flex-wrap gap-3">
-              <Link href={session ? "/posts/new" : "/register"} className="button-primary">
-                {session ? "Post now" : "Sign up"}
-              </Link>
-              {!session && (
-                <Link href="/login" className="button-secondary">
-                  Log in
-                </Link>
-              )}
-            </div>
-          </div>
-
-          <div className="surface rounded-[30px] border border-white/10 p-5">
-            <p className="label-text">Stream mix</p>
-            <div className="mt-4 space-y-3">
-              <div className="rounded-[22px] border border-white/10 bg-white/5 p-4">
-                <p className="text-sm font-semibold text-white">Local urgency</p>
-                <p className="mt-2 text-sm leading-7 text-slate-300">
-                  Posts gain visibility through priority, engagement, and freshness.
-                </p>
-              </div>
-              <div className="rounded-[22px] border border-white/10 bg-white/5 p-4">
-                <p className="text-sm font-semibold text-white">Thread-style reading</p>
-                <p className="mt-2 text-sm leading-7 text-slate-300">
-                  Every card is meant to feel openable, conversational, and alive.
-                </p>
-              </div>
-              <div className="rounded-[22px] border border-white/10 bg-white/5 p-4">
-                <p className="text-sm font-semibold text-white">Participation locked to accounts</p>
-                <p className="mt-2 text-sm leading-7 text-slate-300">
-                  The stream is public, but actions still stay tied to real identities.
-                </p>
-              </div>
-            </div>
-          </div>
-        </aside>
       </div>
     </section>
   );

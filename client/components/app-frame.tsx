@@ -25,20 +25,15 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="page-wrap">
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-black/70 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-white/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-5">
             <Link href="/" className="flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-400/10 text-sm font-semibold uppercase tracking-[0.24em] text-cyan-200">
-                CS
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold uppercase tracking-[0.18em] text-slate-700">
+                UF
               </span>
               <span>
-                <span className="block text-xl font-semibold tracking-[-0.04em] text-white">
-                  CivicSignal
-                </span>
-                <span className="block text-xs uppercase tracking-[0.22em] text-slate-500">
-                  Public civic stream
-                </span>
+                <span className="block text-xl font-semibold tracking-[-0.03em] text-slate-900">UrbanFix</span>
               </span>
             </Link>
             <nav className="hidden items-center gap-2 md:flex">
@@ -58,7 +53,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-3">
             {session ? (
               <>
-                <div className="hidden rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 sm:block">
+                <div className="hidden rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 sm:block">
                   {me?.profile.publicAlias ?? session.user.email}
                 </div>
                 <Link href="/posts/new" className="button-primary hidden sm:inline-flex">
@@ -70,9 +65,6 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
               </>
             ) : (
               <>
-                <div className="hidden rounded-full border border-amber-300/20 bg-amber-300/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-100 md:block">
-                  Guest browsing enabled
-                </div>
                 <Link href="/login" className="button-ghost">
                   Login
                 </Link>

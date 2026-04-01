@@ -722,7 +722,7 @@ export default function NewPostPage() {
             </label>
           </div>
 
-          <label className="flex items-center gap-3 rounded-[22px] border border-white/10 bg-white/5 px-4 py-4 text-sm text-slate-200">
+          <label className="flex items-center gap-3 rounded-[22px] border border-white/10 bg-white/5 px-4 py-4 text-sm font-medium text-slate-900">
             <input
               type="checkbox"
               checked={form.isAnonymous}
