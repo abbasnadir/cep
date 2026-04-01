@@ -118,6 +118,12 @@ a {
   color: #728091;
 }
 
+.select-field option,
+.select-field optgroup {
+  color: #0f172a;
+  background: #ffffff;
+}
+
 .textarea-field {
   min-height: 11rem;
   resize: vertical;

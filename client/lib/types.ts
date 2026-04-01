@@ -161,6 +161,7 @@ export interface SummaryOverview {
     status: string;
     count: number;
   }>;
+  topIssues?: PostCard[];
   byArea?: Array<{
     area: AreaRef;
     totals: {
@@ -180,6 +181,7 @@ export interface PostCreateRequest {
   location: {
     mode: "auto_detected" | "manual" | "none";
     areaId?: string | null;
+    areaLabel?: string | null;
     geoPoint?:
       | {
           latitude: number;

@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import type { RouterObject } from "../../types/router.js";
-import { fetchProfileById, mapProfileResponse } from "../lib/civicData.js";
+import { fetchProfileById, mapProfileResponse, resolveAppRole } from "../lib/civicData.js";
 
 const meRouter: RouterObject = {
   path: "/me",
@@ -14,16 +14,18 @@ const meRouter: RouterObject = {
         const profile = await fetchProfileById(req.user.id);
 
         if (!profile) {
+          const role = resolveAppRole(req.user.role);
+
           res.status(200).json({
             user: {
               id: req.user.id,
               email: req.user.email ?? null,
-              role: req.user.role ?? "citizen",
+              role,
               onboardingComplete: false,
             },
             profile: {
               id: req.user.id,
-              role: req.user.role ?? "citizen",
+              role,
               publicAlias:
                 req.user.email?.split("@")[0] ?? "anonymous-user",
               anonymousByDefault: true,

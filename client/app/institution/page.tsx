@@ -7,12 +7,11 @@ import { useAuth } from "@/components/auth-provider";
 import { PostCardView } from "@/components/post-card";
 import { StateBlock } from "@/components/state-block";
 import { apiFetch } from "@/lib/api";
-import type { FeedResponse, SummaryOverview } from "@/lib/types";
+import type { SummaryOverview } from "@/lib/types";
 
 export default function InstitutionPage() {
   const { session, me, loading } = useAuth();
   const [summary, setSummary] = useState<SummaryOverview | null>(null);
-  const [topPosts, setTopPosts] = useState<FeedResponse["items"]>([]);
   const [pageError, setPageError] = useState<string | null>(null);
   const [loadingPage, setLoadingPage] = useState(true);
 
@@ -31,18 +30,15 @@ export default function InstitutionPage() {
       setPageError(null);
 
       try {
-        const [summaryResponse, feedResponse] = await Promise.all([
-          apiFetch<SummaryOverview>("/institution/summaries/overview", {
+        const summaryResponse = await apiFetch<SummaryOverview>(
+          "/institution/summaries/overview",
+          {
             accessToken,
-          }),
-          apiFetch<FeedResponse>("/feed?limit=6&sort=ranked", {
-            accessToken,
-          }),
-        ]);
+          },
+        );
 
         if (!ignore) {
           setSummary(summaryResponse);
-          setTopPosts(feedResponse.items);
         }
       } catch (dashboardError) {
         if (!ignore) {
@@ -170,8 +166,8 @@ export default function InstitutionPage() {
         </div>
 
         <div className="space-y-4">
-          {topPosts.length ? (
-            topPosts.map((post) => <PostCardView key={post.id} post={post} />)
+          {summary.topIssues?.length ? (
+            summary.topIssues.map((post) => <PostCardView key={post.id} post={post} />)
           ) : (
             <StateBlock
               title="No priority posts"

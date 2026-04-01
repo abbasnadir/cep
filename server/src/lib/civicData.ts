@@ -1,4 +1,5 @@
 import type { Request } from "express";
+import { randomUUID } from "node:crypto";
 
 import {
   BadRequestError,
@@ -8,6 +9,33 @@ import {
 import { supabase } from "./supabaseClient.js";
 
 type DbRow = Record<string, any>;
+const APP_ROLES = new Set(["citizen", "ngo_staff", "government_staff", "admin"]);
+const DEFAULT_CATEGORIES = [
+  { slug: "sanitation", label: "Sanitation", severityHint: "medium" },
+  { slug: "flooding", label: "Flooding", severityHint: "high" },
+  { slug: "public-safety", label: "Public Safety", severityHint: "high" },
+  { slug: "water-access", label: "Water Access", severityHint: "high" },
+  { slug: "road-damage", label: "Road Damage", severityHint: "medium" },
+  { slug: "environment", label: "Environment", severityHint: "medium" },
+] as const;
+const DEFAULT_AREAS = [
+  { id: "builtin-india", name: "India", areaType: "country", parentAreaId: null },
+  { id: "builtin-delhi", name: "Delhi", areaType: "city", parentAreaId: "builtin-india" },
+  { id: "builtin-dwarka", name: "Dwarka", areaType: "locality", parentAreaId: "builtin-delhi" },
+  { id: "builtin-saket", name: "Saket", areaType: "locality", parentAreaId: "builtin-delhi" },
+  { id: "builtin-mumbai", name: "Mumbai", areaType: "city", parentAreaId: "builtin-india" },
+  { id: "builtin-andheri", name: "Andheri", areaType: "locality", parentAreaId: "builtin-mumbai" },
+  { id: "builtin-bandra", name: "Bandra", areaType: "locality", parentAreaId: "builtin-mumbai" },
+  { id: "builtin-bengaluru", name: "Bengaluru", areaType: "city", parentAreaId: "builtin-india" },
+  { id: "builtin-indiranagar", name: "Indiranagar", areaType: "locality", parentAreaId: "builtin-bengaluru" },
+  { id: "builtin-whitefield", name: "Whitefield", areaType: "locality", parentAreaId: "builtin-bengaluru" },
+  { id: "builtin-kolkata", name: "Kolkata", areaType: "city", parentAreaId: "builtin-india" },
+  { id: "builtin-salt-lake", name: "Salt Lake", areaType: "locality", parentAreaId: "builtin-kolkata" },
+  { id: "builtin-park-street", name: "Park Street", areaType: "locality", parentAreaId: "builtin-kolkata" },
+  { id: "builtin-chennai", name: "Chennai", areaType: "city", parentAreaId: "builtin-india" },
+  { id: "builtin-adyar", name: "Adyar", areaType: "locality", parentAreaId: "builtin-chennai" },
+  { id: "builtin-t-nagar", name: "T Nagar", areaType: "locality", parentAreaId: "builtin-chennai" },
+] as const;
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -30,6 +58,29 @@ function ensureSuccess<T>(data: T, error: { message: string } | null, message?: 
   }
 
   return data;
+}
+
+function resolveAppRole(role: unknown) {
+  return typeof role === "string" && APP_ROLES.has(role) ? role : "citizen";
+}
+
+function getDefaultAreas({
+  q,
+  parentAreaId,
+  type,
+  limit,
+}: {
+  q: string | undefined;
+  parentAreaId: string | undefined;
+  type: string | undefined;
+  limit: number;
+}) {
+  return DEFAULT_AREAS.filter((area) => {
+    if (type && area.areaType !== type) return false;
+    if (parentAreaId && area.parentAreaId !== parentAreaId) return false;
+    if (q && !area.name.toLowerCase().includes(q.toLowerCase())) return false;
+    return true;
+  }).slice(0, limit);
 }
 
 function mapArea(area: DbRow | null | undefined, fallbackLabel?: string) {
@@ -142,6 +193,56 @@ async function fetchCategoriesByIds(categoryIds: string[]) {
   );
 }
 
+async function resolveCategoryId(categoryInput: string) {
+  if (UUID_REGEX.test(categoryInput)) {
+    const categoryMap = await fetchCategoriesByIds([categoryInput]);
+    assert(categoryMap.has(categoryInput), "categoryId is not recognized");
+    return categoryInput;
+  }
+
+  const fallbackCategory = DEFAULT_CATEGORIES.find((category) => category.slug === categoryInput);
+  assert(fallbackCategory, "categoryId is not recognized");
+
+  const existingCategoryResult = await supabase
+    .from("categories")
+    .select("id")
+    .eq("slug", fallbackCategory.slug)
+    .maybeSingle();
+  const existingCategory = ensureSuccess(
+    existingCategoryResult.data,
+    existingCategoryResult.error,
+    "Failed to load category",
+  );
+
+  if (existingCategory?.id) {
+    return existingCategory.id;
+  }
+
+  const createdCategoryResult = await supabase
+    .from("categories")
+    .insert({
+      id: randomUUID(),
+      slug: fallbackCategory.slug,
+      display_name: fallbackCategory.label,
+      severity_hint: fallbackCategory.severityHint,
+      is_active: true,
+    })
+    .select("id")
+    .single();
+
+  const createdCategory = ensureSuccess(
+    createdCategoryResult.data,
+    createdCategoryResult.error,
+    "Failed to create fallback category",
+  );
+  assert(createdCategory?.id, "Fallback category creation did not return an id");
+  return createdCategory.id;
+}
+
+function resolveBuiltinArea(areaId: string) {
+  return DEFAULT_AREAS.find((area) => area.id === areaId);
+}
+
 async function fetchOrganizationsByIds(organizationIds: string[]) {
   if (!organizationIds.length) return new Map<string, DbRow>();
 
@@ -208,7 +309,7 @@ export async function requireInstitutionProfile(userId: string) {
 }
 
 export function mapProfileResponse(profile: DbRow, user: Request["user"]) {
-  const resolvedRole = profile.role ?? user.role ?? "citizen";
+  const resolvedRole = resolveAppRole(profile.role ?? user.role);
 
   return {
     user: {
@@ -350,7 +451,10 @@ export async function hydratePosts(rows: DbRow[], options?: { includeExactLocati
       createdAt: row.created_at,
       updatedAt: row.updated_at ?? null,
       rankingReason: {
-        localityMatch: row.area_id ? "exact" : "global",
+        localityMatch:
+          row.area_id || row.sanitized_area_label === "Detected location"
+            ? "unknown"
+            : "global",
         engagementWeight:
           ((raiseCounts[row.id] ?? 0) + (commentCounts[row.id] ?? 0)) / 100,
         aiSeverityWeight: severityWeight(ai?.severity_level),
@@ -426,8 +530,7 @@ export async function fetchFeed(request: Request) {
     .select(
       "id, author_id, category_id, area_id, public_alias_snapshot, description, source_language, display_language, workflow_status, enrichment_status, priority_score, is_anonymous, sanitized_area_label, created_at, updated_at",
     )
-    .order("created_at", { ascending: false })
-    .range(0, 99);
+    .order("created_at", { ascending: false });
 
   if (areaId) query.eq("area_id", assertUuid(areaId, "areaId"));
   if (categoryId) query.eq("category_id", assertUuid(categoryId, "categoryId"));
@@ -456,7 +559,8 @@ export async function fetchFeed(request: Request) {
     return (
       right.priorityScore - left.priorityScore ||
       right.raiseCount - left.raiseCount ||
-      right.commentCount - left.commentCount
+      right.commentCount - left.commentCount ||
+      new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
     );
   });
 
@@ -469,8 +573,7 @@ export async function fetchFeed(request: Request) {
     limit,
     total: sortedPosts.length,
     rankingPolicy: {
-      factors: ["locality", "raises", "comments", "ai_severity", "freshness"],
-      localityPriority: ["exact", "nearby", "global"],
+      factors: ["priority_score", "raises", "comments", "freshness"],
     },
   };
 }
@@ -490,9 +593,9 @@ export async function fetchSummary(request: Request, areaId?: string) {
   const posts = ensureSuccess(data ?? [], error, "Failed to load posts for summary");
   const postIds = posts.map((post) => post.id);
 
-  const [categories, areas, aiResult] = await Promise.all([
+  const [categories, requestedAreaMap, aiResult] = await Promise.all([
     fetchCategoriesByIds(Array.from(new Set(posts.map((post) => post.category_id).filter(Boolean)))),
-    fetchAreasByIds(Array.from(new Set(posts.map((post) => post.area_id).filter(Boolean)))),
+    areaId ? fetchAreasByIds([areaId]) : Promise.resolve(new Map<string, DbRow>()),
     supabase
       .from("post_ai_assessments")
       .select("post_id, severity_level")
@@ -538,6 +641,15 @@ export async function fetchSummary(request: Request, areaId?: string) {
     }, new Map()),
   ).map(([status, count]) => ({ status, count }));
 
+  const topRows = [...posts]
+    .sort(
+      (left, right) =>
+        Number(right.priority_score ?? 0) - Number(left.priority_score ?? 0) ||
+        new Date(right.created_at).getTime() - new Date(left.created_at).getTime(),
+    )
+    .slice(0, 5);
+  const topIssues = await hydratePosts(topRows, { includeExactLocation: true });
+
   if (!areaId) {
     return {
       dateRange: { from, to },
@@ -545,18 +657,16 @@ export async function fetchSummary(request: Request, areaId?: string) {
       bySeverity,
       byCategory,
       byStatus,
+      topIssues,
     };
   }
 
-  const area = areas.get(areaId);
+  const area = requestedAreaMap.get(areaId);
   if (!area) {
     throw new NotFoundError("Area not found");
   }
 
-  const topRows = [...posts]
-    .sort((left, right) => Number(right.priority_score ?? 0) - Number(left.priority_score ?? 0))
-    .slice(0, 5);
-  const topIssues = await hydratePosts(
+  const sanitizedTopIssues = await hydratePosts(
     topRows.map((row) => ({
       ...row,
       public_alias_snapshot: "anonymous",
@@ -578,7 +688,7 @@ export async function fetchSummary(request: Request, areaId?: string) {
       highPriorityPosts: totals.highPriorityPosts,
     },
     byCategory,
-    topIssues,
+    topIssues: sanitizedTopIssues,
   };
 }
 
@@ -589,22 +699,37 @@ export async function fetchAreas(request: Request) {
       ? request.query.parentAreaId
       : undefined;
   const type = typeof request.query.type === "string" ? request.query.type : undefined;
+  const requestedLimit = Number(request.query.limit);
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.min(200, Math.max(1, requestedLimit))
+    : q
+      ? 25
+      : 200;
 
   const query = supabase
     .from("areas")
     .select("id, name, area_type, parent_area_id")
     .eq("is_active", true)
     .order("name", { ascending: true })
-    .limit(25);
+    .limit(limit);
 
   if (q) query.ilike("name", `%${q}%`);
   if (parentAreaId) query.eq("parent_area_id", assertUuid(parentAreaId, "parentAreaId"));
   if (type) query.eq("area_type", type);
 
   const { data, error } = await query;
-  return ensureSuccess(data ?? [], error, "Failed to load areas").map((row) =>
-    mapArea(row),
-  );
+  const rows = ensureSuccess(data ?? [], error, "Failed to load areas");
+
+  if (rows.length) {
+    return rows.map((row) => mapArea(row));
+  }
+
+  return getDefaultAreas({ q, parentAreaId, type, limit }).map((area) => ({
+    id: area.id,
+    name: area.name,
+    areaType: area.areaType,
+    parentAreaId: area.parentAreaId,
+  }));
 }
 
 export async function fetchCategories() {
@@ -614,11 +739,21 @@ export async function fetchCategories() {
     .eq("is_active", true)
     .order("display_name", { ascending: true });
 
-  return ensureSuccess(data ?? [], error, "Failed to load categories").map((row) => ({
-    id: row.id,
-    slug: row.slug,
-    label: row.display_name,
-    severityHint: row.severity_hint ?? null,
+  const rows = ensureSuccess(data ?? [], error, "Failed to load categories");
+  if (rows.length) {
+    return rows.map((row) => ({
+      id: row.id,
+      slug: row.slug,
+      label: row.display_name,
+      severityHint: row.severity_hint ?? null,
+    }));
+  }
+
+  return DEFAULT_CATEGORIES.map((category) => ({
+    id: category.slug,
+    slug: category.slug,
+    label: category.label,
+    severityHint: category.severityHint,
   }));
 }
 
@@ -626,14 +761,20 @@ export async function createProfile(userId: string, body: DbRow) {
   assert(typeof body.publicAlias === "string", "publicAlias is required");
   assert(body.publicAlias.trim().length >= 3, "publicAlias must be at least 3 characters");
   assert(typeof body.preferredLanguage === "string", "preferredLanguage is required");
+  const existingProfile = await fetchProfileById(userId);
 
   const payload = {
     id: userId,
-    role: "citizen",
+    role: existingProfile?.role ?? "citizen",
+    organization_id: existingProfile?.organization_id ?? null,
     public_alias: body.publicAlias.trim(),
-    anonymous_by_default: body.anonymousByDefault ?? true,
+    anonymous_by_default:
+      body.anonymousByDefault ?? existingProfile?.anonymous_by_default ?? true,
     preferred_language: body.preferredLanguage,
-    home_area_id: body.homeAreaId ?? null,
+    home_area_id:
+      body.homeAreaId !== undefined
+        ? body.homeAreaId
+        : existingProfile?.home_area_id ?? null,
     onboarding_complete: true,
   };
 
@@ -648,22 +789,41 @@ export async function createPost(userId: string, body: DbRow) {
   assert(typeof body.description === "string", "description is required");
 
   const profile = await requireProfile(userId);
-  const areaId =
+  const categoryId = await resolveCategoryId(body.categoryId);
+  const hasDetectedGeoPoint =
+    body.location?.mode === "auto_detected" &&
+    typeof body.location?.geoPoint?.latitude === "number" &&
+    typeof body.location?.geoPoint?.longitude === "number";
+  const areaLabel =
+    typeof body.location?.areaLabel === "string" ? body.location.areaLabel.trim() : "";
+  const requestedAreaId =
     body.location?.mode === "manual" && typeof body.location.areaId === "string"
-      ? assertUuid(body.location.areaId, "location.areaId")
+      ? body.location.areaId
       : null;
 
-  let sanitizedAreaLabel = "Global";
-  if (areaId) {
-    const areaMap = await fetchAreasByIds([areaId]);
-    sanitizedAreaLabel = areaMap.get(areaId)?.name ?? "Global";
+  let sanitizedAreaLabel = hasDetectedGeoPoint ? "Detected location" : "Global";
+  let areaId: string | null = null;
+  if (requestedAreaId) {
+    if (UUID_REGEX.test(requestedAreaId)) {
+      const resolvedAreaId = requestedAreaId;
+      areaId = resolvedAreaId;
+      const areaMap = await fetchAreasByIds([resolvedAreaId]);
+      assert(areaMap.has(resolvedAreaId), "location.areaId is not recognized");
+      sanitizedAreaLabel = areaLabel || areaMap.get(resolvedAreaId)?.name || "Global";
+    } else {
+      const builtinArea = resolveBuiltinArea(requestedAreaId);
+      assert(builtinArea, "location.areaId is not recognized");
+      sanitizedAreaLabel = areaLabel || builtinArea.name;
+    }
+  } else if (areaLabel) {
+    sanitizedAreaLabel = areaLabel;
   }
 
   const { data, error } = await supabase
     .from("posts")
     .insert({
       author_id: userId,
-      category_id: assertUuid(body.categoryId, "categoryId"),
+      category_id: categoryId,
       area_id: areaId,
       public_alias_snapshot: profile.public_alias,
       description: body.description.trim(),
@@ -856,3 +1016,4 @@ export async function fetchInstitutionPostDetail(postId: string) {
 }
 
 export { assertUuid, parsePagination };
+export { resolveAppRole };

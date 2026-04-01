@@ -1,7 +1,7 @@
 "use client";
 
 import type { Session } from "@supabase/supabase-js";
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 import { apiFetch } from "@/lib/api";
 import { supabase } from "@/lib/supabaseClient";
@@ -16,56 +16,104 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+const APP_ROLES = new Set<Role>(["citizen", "ngo_staff", "government_staff", "admin"]);
 
-function buildFallbackProfile(session: Session): MeResponse {
-  const email = session.user.email ?? null;
-  const publicAlias =
+function normalizeRole(role: unknown): Role {
+  return typeof role === "string" && APP_ROLES.has(role as Role)
+    ? (role as Role)
+    : "citizen";
+}
+
+function resolveAlias(session: Session): string {
+  const metadataAlias =
     typeof session.user.user_metadata?.public_alias === "string"
-      ? session.user.user_metadata.public_alias
-      : email?.split("@")[0] ?? "anonymous-user";
-  const role =
-    typeof session.user.user_metadata?.role === "string"
-      ? (session.user.user_metadata.role as Role)
-      : "citizen";
+      ? session.user.user_metadata.public_alias.trim()
+      : "";
+  const emailAlias = session.user.email?.split("@")[0]?.trim() ?? "";
+  const fallbackAlias = `user-${session.user.id.slice(0, 8)}`;
+  const alias = metadataAlias || emailAlias || fallbackAlias;
 
-  return {
-    user: {
-      id: session.user.id,
-      email,
-      role,
-      onboardingComplete: true,
-    },
-    profile: {
-      id: session.user.id,
-      role,
-      publicAlias,
-      anonymousByDefault: true,
-      preferredLanguage: "en",
-      onboardingComplete: true,
-    },
-  };
+  return alias.length >= 3 ? alias : `${alias}${"-".repeat(3 - alias.length)}`;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [me, setMe] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const sessionRef = useRef<Session | null>(null);
+  const meRef = useRef<MeResponse | null>(null);
+  const loadedTokenRef = useRef<string | null>(null);
 
-  async function refreshProfile(nextSession = session) {
-    if (!nextSession?.access_token) {
-      setMe(null);
-      return;
-    }
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
 
-    try {
-      const profile = await apiFetch<MeResponse>("/me", {
-        accessToken: nextSession.access_token,
-      });
-      setMe(profile);
-    } catch {
-      setMe(buildFallbackProfile(nextSession));
-    }
-  }
+  useEffect(() => {
+    meRef.current = me;
+  }, [me]);
+
+  const refreshProfile = useCallback(
+    async (nextSession?: Session | null) => {
+      const activeSession = nextSession ?? sessionRef.current;
+
+      if (!activeSession?.access_token) {
+        loadedTokenRef.current = null;
+        setMe(null);
+        return;
+      }
+
+      const accessToken = activeSession.access_token;
+
+      if (nextSession && loadedTokenRef.current === accessToken && meRef.current) {
+        return;
+      }
+
+      try {
+        const profile = await apiFetch<MeResponse>("/me", {
+          accessToken,
+        });
+
+        if (!profile.user.onboardingComplete) {
+          if (normalizeRole(profile.user.role) !== "citizen") {
+            loadedTokenRef.current = accessToken;
+            setMe(profile);
+            return;
+          }
+
+          try {
+            await apiFetch("/profiles/register", {
+              method: "POST",
+              accessToken,
+              body: JSON.stringify({
+                publicAlias: resolveAlias(activeSession),
+                preferredLanguage: "en",
+                anonymousByDefault: true,
+              }),
+            });
+
+            const hydratedProfile = await apiFetch<MeResponse>("/me", {
+              accessToken,
+            });
+            loadedTokenRef.current = accessToken;
+            setMe(hydratedProfile);
+          } catch (profileError) {
+            console.error("Profile bootstrap failed", profileError);
+            loadedTokenRef.current = accessToken;
+            setMe(profile);
+          }
+          return;
+        }
+
+        loadedTokenRef.current = accessToken;
+        setMe(profile);
+      } catch (profileError) {
+        console.error("Profile refresh failed", profileError);
+        loadedTokenRef.current = null;
+        setMe(null);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     let active = true;
@@ -98,18 +146,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       active = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [refreshProfile]);
 
-  const value = useMemo<AuthContextValue>(
-    () => ({
-      session,
-      me,
-      loading,
-      refreshProfile: () => refreshProfile(),
-      signOut: () => supabase.auth.signOut().then(() => undefined),
-    }),
-    [loading, me, session],
-  );
+  const value: AuthContextValue = {
+    session,
+    me,
+    loading,
+    refreshProfile: () => refreshProfile(),
+    signOut: () => supabase.auth.signOut().then(() => undefined),
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
