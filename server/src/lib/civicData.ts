@@ -21,6 +21,9 @@ const WORKFLOW_STATUSES = [
   "rejected",
 ] as const;
 const CASE_STATUSES = ["triage", "investigating", "responding", "monitoring", "closed"] as const;
+const SUMMARY_QUEUE_FILTERS = ["all", "active", "high_priority", "reported"] as const;
+const SUMMARY_SORTS = ["priority_desc", "newest", "oldest"] as const;
+const SEVERITY_LEVELS = ["critical", "high", "medium", "low", "unknown"] as const;
 const REPORT_REVIEW_STATUSES = [
   "pending_review",
   "dismissed",
@@ -288,8 +291,9 @@ function parseDateRange(request: Request) {
   }
 
   return {
-    from: from ?? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-    to: to ?? new Date().toISOString().slice(0, 10),
+    from,
+    to,
+    hasExplicitRange: Boolean(from || to),
   };
 }
 
@@ -459,7 +463,9 @@ export async function requireInstitutionProfile(userId: string) {
   }
 
   if (access.role !== "admin" && !profile.organization?.is_verified) {
-    throw new ForbiddenError("Institution role is not verified");
+    throw new ForbiddenError(
+      "Institution dashboard is not available for this account yet. Please contact an administrator.",
+    );
   }
 
   return profile;
@@ -788,14 +794,50 @@ async function fetchReportedQueue(limit = 5) {
 }
 
 export async function fetchSummary(request: Request, areaId?: string, institutionProfile?: DbRow) {
-  const { from, to } = parseDateRange(request);
+  const { from, to, hasExplicitRange } = parseDateRange(request);
   const access = institutionProfile ? resolveInstitutionAccess(institutionProfile.role) : null;
+  const queue =
+    typeof request.query.queue === "string"
+      ? assertEnumValue(request.query.queue, SUMMARY_QUEUE_FILTERS, "queue")
+      : "active";
+  const sort =
+    typeof request.query.sort === "string"
+      ? assertEnumValue(request.query.sort, SUMMARY_SORTS, "sort")
+      : "priority_desc";
+  const status =
+    typeof request.query.status === "string" && request.query.status !== "all"
+      ? assertEnumValue(request.query.status, WORKFLOW_STATUSES, "status")
+      : undefined;
+  const severity =
+    typeof request.query.severity === "string" && request.query.severity !== "all"
+      ? assertEnumValue(request.query.severity, SEVERITY_LEVELS, "severity")
+      : undefined;
+  const categoryId =
+    typeof request.query.categoryId === "string" && request.query.categoryId.trim()
+      ? request.query.categoryId.trim()
+      : undefined;
+  const search =
+    typeof request.query.q === "string" && request.query.q.trim()
+      ? request.query.q.trim().toLowerCase()
+      : undefined;
+  const requestedQueueLimit = Number(request.query.queueLimit);
+  const queueLimit = Number.isFinite(requestedQueueLimit)
+    ? Math.min(24, Math.max(3, requestedQueueLimit))
+    : 8;
 
   const query = supabase
     .from("posts")
-    .select("id, category_id, area_id, workflow_status, priority_score, created_at")
-    .gte("created_at", `${from}T00:00:00.000Z`)
-    .lte("created_at", `${to}T23:59:59.999Z`);
+    .select(
+      "id, category_id, area_id, workflow_status, priority_score, description, enrichment_status, sanitized_area_label, created_at",
+    );
+
+  if (from) {
+    query.gte("created_at", `${from}T00:00:00.000Z`);
+  }
+
+  if (to) {
+    query.lte("created_at", `${to}T23:59:59.999Z`);
+  }
 
   if (areaId) query.eq("area_id", assertUuid(areaId, "areaId"));
 
@@ -803,23 +845,97 @@ export async function fetchSummary(request: Request, areaId?: string, institutio
   const posts = ensureSuccess(data ?? [], error, "Failed to load posts for summary");
   const postIds = posts.map((post) => post.id);
 
-  const [categories, requestedAreaMap, aiResult] = await Promise.all([
+  let caseViewQuery = supabase
+    .from("institution_case_views")
+    .select("post_id, case_status, organization_id")
+    .in("post_id", postIds.length ? postIds : ["00000000-0000-0000-0000-000000000000"]);
+
+  if (access?.scope === "organization" && institutionProfile?.organization_id) {
+    caseViewQuery = caseViewQuery.eq("organization_id", institutionProfile.organization_id);
+  }
+
+  const [categories, areaMap, aiResult, reportsResult, caseViewsResult] = await Promise.all([
     fetchCategoriesByIds(Array.from(new Set(posts.map((post) => post.category_id).filter(Boolean)))),
-    areaId ? fetchAreasByIds([areaId]) : Promise.resolve(new Map<string, DbRow>()),
+    fetchAreasByIds(Array.from(new Set(posts.map((post) => post.area_id).filter(Boolean)))),
     supabase
       .from("post_ai_assessments")
       .select("post_id, severity_level")
       .in("post_id", postIds.length ? postIds : ["00000000-0000-0000-0000-000000000000"]),
+    supabase
+      .from("post_reports")
+      .select("post_id, review_status")
+      .in("post_id", postIds.length ? postIds : ["00000000-0000-0000-0000-000000000000"]),
+    caseViewQuery,
   ]);
 
   const aiRows = ensureSuccess(aiResult.data ?? [], aiResult.error, "Failed to load severity data");
-  const severityByPost = new Map(aiRows.map((row) => [row.post_id, row.severity_level ?? "unknown"]));
+  const reportRows = ensureSuccess(
+    reportsResult.data ?? [],
+    reportsResult.error,
+    "Failed to load report totals",
+  );
+  const caseViewRows = ensureSuccess(
+    caseViewsResult.data ?? [],
+    caseViewsResult.error,
+    "Failed to load institution case totals",
+  );
+  const severityByPost = new Map(
+    aiRows.map((row) => [row.post_id, row.severity_level ?? "unknown"]),
+  );
+  const reportCountByPost = countByPostId(reportRows);
+
+  const postRecords = posts.map((post) => {
+    const resolvedSeverity = severityByPost.get(post.id) ?? "unknown";
+    const resolvedArea = areaMap.get(post.area_id);
+    const resolvedCategory = categories.get(post.category_id);
+
+    return {
+      ...post,
+      severity: resolvedSeverity,
+      reportCount: reportCountByPost[post.id] ?? 0,
+      areaName: resolvedArea?.name ?? post.sanitized_area_label ?? "Global",
+      categoryLabel: resolvedCategory?.display_name ?? "Uncategorized",
+    };
+  });
+
+  const effectiveDateRange = posts.length
+    ? {
+        from: posts
+          .reduce((earliest, post) =>
+            new Date(post.created_at).getTime() < new Date(earliest.created_at).getTime()
+              ? post
+              : earliest,
+          )
+          .created_at.slice(0, 10),
+        to: posts
+          .reduce((latest, post) =>
+            new Date(post.created_at).getTime() > new Date(latest.created_at).getTime()
+              ? post
+              : latest,
+          )
+          .created_at.slice(0, 10),
+      }
+    : {
+        from: from ?? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+        to: to ?? new Date().toISOString().slice(0, 10),
+      };
 
   const totals = {
     totalPosts: posts.length,
     unresolvedPosts: posts.filter((post) => post.workflow_status !== "resolved").length,
     highPriorityPosts: posts.filter((post) => Number(post.priority_score ?? 0) >= 75).length,
     resolvedPosts: posts.filter((post) => post.workflow_status === "resolved").length,
+    acknowledgedPosts: posts.filter((post) => post.workflow_status === "acknowledged").length,
+    inProgressPosts: posts.filter((post) => post.workflow_status === "in_progress").length,
+    reportedPosts: reportRows.length,
+    pendingEnrichmentPosts: posts.filter((post) => post.enrichment_status !== "completed").length,
+    avgPriorityScore: posts.length
+      ? Number(
+          (
+            posts.reduce((sum, post) => sum + Number(post.priority_score ?? 0), 0) / posts.length
+          ).toFixed(1),
+        )
+      : 0,
   };
 
   const bySeverity = Array.from(
@@ -828,7 +944,13 @@ export async function fetchSummary(request: Request, areaId?: string, institutio
       accumulator.set(severity, (accumulator.get(severity) ?? 0) + 1);
       return accumulator;
     }, new Map()),
-  ).map(([severity, count]) => ({ severity, count }));
+  )
+    .map(([severity, count]) => ({ severity, count }))
+    .sort(
+      (left, right) =>
+        SEVERITY_LEVELS.indexOf(left.severity as (typeof SEVERITY_LEVELS)[number]) -
+        SEVERITY_LEVELS.indexOf(right.severity as (typeof SEVERITY_LEVELS)[number]),
+    );
 
   const byCategory = Array.from(
     posts.reduce<Map<string, number>>((accumulator, post) => {
@@ -839,7 +961,9 @@ export async function fetchSummary(request: Request, areaId?: string, institutio
     categoryId,
     label: categories.get(categoryId)?.display_name ?? "Uncategorized",
     count,
-  }));
+  }))
+    .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label))
+    .slice(0, 8);
 
   const byStatus = Array.from(
     posts.reduce<Map<string, number>>((accumulator, post) => {
@@ -851,61 +975,189 @@ export async function fetchSummary(request: Request, areaId?: string, institutio
     }, new Map()),
   ).map(([status, count]) => ({ status, count }));
 
-  const topRows = [...posts]
+  const byCaseStatus = Array.from(
+    caseViewRows.reduce<Map<string, number>>((accumulator, row) => {
+      const caseStatus = row.case_status ?? "triage";
+      accumulator.set(caseStatus, (accumulator.get(caseStatus) ?? 0) + 1);
+      return accumulator;
+    }, new Map()),
+  ).map(([status, count]) => ({ status, count }));
+
+  const timeline = Array.from(
+    postRecords.reduce<Map<string, { date: string; totalPosts: number; highPriorityPosts: number }>>(
+      (accumulator, post) => {
+        const date = new Date(post.created_at).toISOString().slice(0, 10);
+        const current = accumulator.get(date) ?? {
+          date,
+          totalPosts: 0,
+          highPriorityPosts: 0,
+        };
+
+        current.totalPosts += 1;
+        if (Number(post.priority_score ?? 0) >= 75) {
+          current.highPriorityPosts += 1;
+        }
+
+        accumulator.set(date, current);
+        return accumulator;
+      },
+      new Map(),
+    ),
+  )
+    .map(([, value]) => value)
+    .sort((left, right) => left.date.localeCompare(right.date));
+
+  const byArea = Array.from(
+    postRecords.reduce<
+      Map<string, { area: ReturnType<typeof mapArea>; totals: { totalPosts: number; unresolvedPosts: number; highPriorityPosts: number } }>
+    >((accumulator, post) => {
+      const areaKey = post.area_id ?? "global";
+      const resolvedArea = mapArea(areaMap.get(post.area_id), post.sanitized_area_label);
+      const current = accumulator.get(areaKey) ?? {
+        area: resolvedArea,
+        totals: {
+          totalPosts: 0,
+          unresolvedPosts: 0,
+          highPriorityPosts: 0,
+        },
+      };
+
+      current.totals.totalPosts += 1;
+      if (post.workflow_status !== "resolved") {
+        current.totals.unresolvedPosts += 1;
+      }
+      if (Number(post.priority_score ?? 0) >= 75) {
+        current.totals.highPriorityPosts += 1;
+      }
+
+      accumulator.set(areaKey, current);
+      return accumulator;
+    }, new Map()),
+  )
+    .map(([, value]) => value)
     .sort(
       (left, right) =>
-        Number(right.priority_score ?? 0) - Number(left.priority_score ?? 0) ||
-        new Date(right.created_at).getTime() - new Date(left.created_at).getTime(),
+        right.totals.highPriorityPosts - left.totals.highPriorityPosts ||
+        right.totals.totalPosts - left.totals.totalPosts,
     )
-    .slice(0, 5);
-  const [topIssues, reportedPosts] = await Promise.all([
-    hydratePosts(topRows, { includeExactLocation: true }),
+    .slice(0, 6);
+
+  const filteredQueue = postRecords.filter((post) => {
+    if (status && post.workflow_status !== status) return false;
+    if (severity && post.severity !== severity) return false;
+    if (categoryId && post.category_id !== categoryId) return false;
+
+    if (queue === "active" && ["resolved", "rejected"].includes(post.workflow_status ?? "open")) {
+      return false;
+    }
+
+    if (queue === "high_priority" && Number(post.priority_score ?? 0) < 75) {
+      return false;
+    }
+
+    if (queue === "reported" && post.reportCount < 1) {
+      return false;
+    }
+
+    if (!search) return true;
+
+    return [
+      post.description,
+      post.categoryLabel,
+      post.areaName,
+      post.sanitized_area_label ?? "",
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(search);
+  });
+
+  const sortedQueue = [...filteredQueue].sort((left, right) => {
+    if (sort === "newest") {
+      return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
+    }
+
+    if (sort === "oldest") {
+      return new Date(left.created_at).getTime() - new Date(right.created_at).getTime();
+    }
+
+    return (
+      Number(right.priority_score ?? 0) - Number(left.priority_score ?? 0) ||
+      right.reportCount - left.reportCount ||
+      new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
+    );
+  });
+
+  const queueRows = sortedQueue.slice(0, queueLimit);
+  const queueRowMap = new Map(
+    (
+      await fetchPostRowsByIds(
+        queueRows.map((post) => post.id),
+        { includeExactLocation: true },
+      )
+    ).map((row) => [row.id, row]),
+  );
+
+  const [queuePosts, reportedPosts] = await Promise.all([
+    hydratePosts(
+      queueRows
+        .map((post) => queueRowMap.get(post.id))
+        .filter((row): row is DbRow => Boolean(row)),
+      { includeExactLocation: true },
+    ),
     access?.canViewReportedQueue ? fetchReportedQueue(5) : Promise.resolve(undefined),
   ]);
 
+  const result: DbRow = {
+    dateRange: hasExplicitRange
+      ? {
+          from: from ?? effectiveDateRange.from,
+          to: to ?? effectiveDateRange.to,
+        }
+      : effectiveDateRange,
+    ...(access ? { access: mapInstitutionAccess(access) } : {}),
+    filters: {
+      queue,
+      status: status ?? null,
+      severity: severity ?? null,
+      categoryId: categoryId ?? null,
+      q: search ?? null,
+      sort,
+    },
+    totals,
+    bySeverity,
+    byCategory,
+    byStatus,
+    byCaseStatus,
+    timeline,
+    byArea,
+    queue: queuePosts,
+    queueMeta: {
+      label:
+        queue === "reported"
+          ? "Reported posts"
+          : queue === "high_priority"
+            ? "High-priority queue"
+            : queue === "all"
+              ? "All matching posts"
+              : "Active work queue",
+      totalMatching: filteredQueue.length,
+    },
+    topIssues: queuePosts,
+    ...(reportedPosts ? { reportedPosts } : {}),
+  };
+
   if (!areaId) {
-    return {
-      dateRange: { from, to },
-      totals,
-      bySeverity,
-      byCategory,
-      byStatus,
-      ...(access ? { access: mapInstitutionAccess(access) } : {}),
-      topIssues,
-      ...(reportedPosts ? { reportedPosts } : {}),
-    };
+    return result;
   }
 
-  const area = requestedAreaMap.get(areaId);
+  const area = areaMap.get(areaId);
   if (!area) {
     throw new NotFoundError("Area not found");
   }
 
-  const sanitizedTopIssues = await hydratePosts(
-    topRows.map((row) => ({
-      ...row,
-      public_alias_snapshot: "anonymous",
-      description: "",
-      source_language: null,
-      display_language: null,
-      enrichment_status: "pending",
-      is_anonymous: true,
-      sanitized_area_label: area.name,
-      updated_at: row.created_at,
-    })),
-  );
-
-  return {
-    area: mapArea(area),
-    ...(access ? { access: mapInstitutionAccess(access) } : {}),
-    totals: {
-      totalPosts: totals.totalPosts,
-      unresolvedPosts: totals.unresolvedPosts,
-      highPriorityPosts: totals.highPriorityPosts,
-    },
-    byCategory,
-    topIssues: sanitizedTopIssues,
-  };
+  result.area = mapArea(area);
+  return result;
 }
 
 export async function fetchAreas(request: Request) {

@@ -97,6 +97,15 @@ export const ENV = {
     120000,
     "GROQ_TIMEOUT_MS",
   ),
+  GROQ_CHAT_MODEL:
+    process.env.GROQ_CHAT_MODEL?.trim() ||
+    process.env.GROQ_MODEL?.trim() ||
+    "llama-3.3-70b-versatile",
+  GROQ_CHAT_MAX_TOKENS: requirePositiveInteger(
+    process.env.GROQ_CHAT_MAX_TOKENS,
+    500,
+    "GROQ_CHAT_MAX_TOKENS",
+  ),
   GROQ_MAX_TOKENS: requirePositiveInteger(
     process.env.GROQ_MAX_TOKENS,
     4,

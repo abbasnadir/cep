@@ -174,11 +174,24 @@ export interface SummaryOverview {
     to: string;
   };
   access?: InstitutionAccess;
+  filters?: {
+    queue: "all" | "active" | "high_priority" | "reported";
+    status?: string | null;
+    severity?: string | null;
+    categoryId?: string | null;
+    q?: string | null;
+    sort: "priority_desc" | "newest" | "oldest";
+  };
   totals: {
     totalPosts: number;
     unresolvedPosts: number;
     highPriorityPosts: number;
     resolvedPosts: number;
+    acknowledgedPosts?: number;
+    inProgressPosts?: number;
+    reportedPosts?: number;
+    pendingEnrichmentPosts?: number;
+    avgPriorityScore?: number;
   };
   bySeverity: Array<{
     severity: string;
@@ -193,6 +206,20 @@ export interface SummaryOverview {
     status: string;
     count: number;
   }>;
+  byCaseStatus?: Array<{
+    status: string;
+    count: number;
+  }>;
+  timeline?: Array<{
+    date: string;
+    totalPosts: number;
+    highPriorityPosts: number;
+  }>;
+  queue?: PostCard[];
+  queueMeta?: {
+    label: string;
+    totalMatching: number;
+  };
   topIssues?: PostCard[];
   reportedPosts?: PostCard[];
   byArea?: Array<{

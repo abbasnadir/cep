@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { useAuth } from "@/components/auth-provider";
+import { HelpChatWidget } from "@/components/help-chat-widget";
 
 const navLinks = [
   { href: "/", label: "Feed" },
@@ -78,6 +79,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">{children}</main>
+      <HelpChatWidget />
     </div>
   );
 }
