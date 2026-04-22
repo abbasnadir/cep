@@ -4,6 +4,7 @@
 
 - Supabase authentication for citizens, NGOs, and government staff in one shared app
 - Public feed served directly on `/`, with `/feed` retained as a compatible alias
+- Front-page AI civic assistant chatbot that answers user questions, explains platform capabilities, guides users to reporting and institution workflows, and helps users discover the right next action without replacing formal issue-post creation
 - Anonymous-by-default citizen profiles with public alias, preferred language, and home area
 - Ranked issue feed with filters for area, category, status, and sort mode
 - Issue post creation with:

@@ -13,18 +13,35 @@ type SpamFilterInput = {
   categoryHint?: string;
 };
 
-type OllamaGenerateResponse = {
-  response?: string;
-  thinking?: string;
-  done?: boolean;
-  done_reason?: string;
-  total_duration?: number;
-  load_duration?: number;
-  prompt_eval_count?: number;
-  prompt_eval_duration?: number;
-  eval_count?: number;
-  eval_duration?: number;
+type GroqChatCompletionResponse = {
+  id?: string;
+  model?: string;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
+  choices?: Array<{
+    finish_reason?: string | null;
+    message?: {
+      role?: string;
+      content?:
+        | string
+        | Array<{
+            type?: string;
+            text?: string;
+          }>;
+    };
+  }>;
 };
+
+type GroqMessageContent =
+  | string
+  | Array<{
+      type?: string;
+      text?: string;
+    }>
+  | undefined;
 
 function buildPrompt(input: SpamFilterInput) {
   return [
@@ -40,11 +57,29 @@ function buildPrompt(input: SpamFilterInput) {
   ].join("\n");
 }
 
-type OllamaTagsResponse = {
-  models?: Array<{
+function buildSystemPrompt() {
+  return [
+    "You classify civic issue posts for spam prevention.",
+    "Return NOT_SPAM only if the text describes a real complaint, grievance, or issue affecting a person, group, community, institution, or country.",
+    "Return SPAM for ads, promotions, scams, irrelevant chatter, nonsense, roleplay, tests, or anything not describing a real issue.",
+    "If you are unsure, return SPAM.",
+    "Reply with exactly one label: SPAM or NOT_SPAM.",
+  ].join(" ");
+}
+
+type GroqModelsResponse = {
+  data?: Array<{
+    id?: string;
     name?: string;
-    model?: string;
   }>;
+};
+
+type GroqErrorResponse = {
+  error?: {
+    message?: string;
+    type?: string;
+    code?: string;
+  };
 };
 
 function isAbortError(error: unknown) {
@@ -52,13 +87,13 @@ function isAbortError(error: unknown) {
 }
 
 function debugLog(message: string, details?: Record<string, unknown>) {
-  if (!ENV.OLLAMA_DEBUG) {
+  if (!ENV.GROQ_DEBUG) {
     return;
   }
 
   const timestamp = new Date().toISOString();
   console.log(
-    `[ollama-spam-filter] ${timestamp} ${message}`,
+    `[groq-spam-filter] ${timestamp} ${message}`,
     details ? JSON.stringify(details) : "",
   );
 }
@@ -91,90 +126,126 @@ function parseVerdict(rawOutput: string): SpamVerdict | null {
   return null;
 }
 
+function extractMessageContent(
+  content: GroqMessageContent,
+) {
+  if (typeof content === "string") {
+    return content;
+  }
+
+  if (Array.isArray(content)) {
+    return content
+      .filter((part): part is { type?: string; text?: string } => Boolean(part))
+      .map((part) => part.text ?? "")
+      .join(" ")
+      .trim();
+  }
+
+  return "";
+}
+
+async function readProviderError(response: Response) {
+  try {
+    const payload = (await response.json()) as GroqErrorResponse;
+    return {
+      message: payload.error?.message ?? null,
+      type: payload.error?.type ?? null,
+      code: payload.error?.code ?? null,
+    };
+  } catch {
+    return {
+      message: null,
+      type: null,
+      code: null,
+    };
+  }
+}
+
 async function requestSpamVerdict(input: SpamFilterInput): Promise<SpamVerdict> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), ENV.OLLAMA_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), ENV.GROQ_TIMEOUT_MS);
   const startedAt = Date.now();
   const requestId = `${startedAt}-${Math.random().toString(36).slice(2, 8)}`;
 
   try {
     debugLog("Sending classification request", {
       requestId,
-      model: ENV.OLLAMA_MODEL,
-      baseUrl: ENV.OLLAMA_BASE_URL,
-      timeoutMs: ENV.OLLAMA_TIMEOUT_MS,
-      numPredict: ENV.OLLAMA_NUM_PREDICT,
-      numCtx: ENV.OLLAMA_NUM_CTX,
-      keepAlive: ENV.OLLAMA_KEEP_ALIVE,
+      model: ENV.GROQ_MODEL,
+      baseUrl: ENV.GROQ_BASE_URL,
+      timeoutMs: ENV.GROQ_TIMEOUT_MS,
+      maxTokens: ENV.GROQ_MAX_TOKENS,
       descriptionLength: input.description.length,
     });
 
-    const response = await fetch(`${ENV.OLLAMA_BASE_URL}/api/generate`, {
+    const response = await fetch(`${ENV.GROQ_BASE_URL}/chat/completions`, {
       method: "POST",
       headers: {
+        Authorization: `Bearer ${ENV.GROQ_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: ENV.OLLAMA_MODEL,
-        prompt: buildPrompt(input),
+        model: ENV.GROQ_MODEL,
+        messages: [
+          {
+            role: "system",
+            content: buildSystemPrompt(),
+          },
+          {
+            role: "user",
+            content: buildPrompt(input),
+          },
+        ],
         stream: false,
-        think: false,
-        keep_alive: ENV.OLLAMA_KEEP_ALIVE,
-        options: {
-          temperature: 0,
-          num_predict: ENV.OLLAMA_NUM_PREDICT,
-          num_ctx: ENV.OLLAMA_NUM_CTX,
-        },
+        temperature: 0,
+        max_completion_tokens: ENV.GROQ_MAX_TOKENS,
       }),
       signal: controller.signal,
     });
 
     if (!response.ok) {
-      debugLog("Ollama responded with non-OK status", {
+      const providerError = await readProviderError(response);
+
+      debugLog("Groq responded with non-OK status", {
         requestId,
         status: response.status,
+        providerError,
         durationMs: Date.now() - startedAt,
       });
 
       throw new ServiceUnavailableError(
-        `Backend spam filtering is unavailable right now because Ollama responded with status ${response.status}.`,
+        providerError.message
+          ? `Backend spam filtering is unavailable right now because Groq returned ${response.status}: ${providerError.message}`
+          : `Backend spam filtering is unavailable right now because Groq responded with status ${response.status}.`,
       );
     }
 
-    const payload = (await response.json()) as OllamaGenerateResponse;
-    const verdict = parseVerdict(payload.response ?? "");
+    const payload = (await response.json()) as GroqChatCompletionResponse;
+    const rawResponse = extractMessageContent(payload.choices?.[0]?.message?.content);
+    const verdict = parseVerdict(rawResponse);
 
     if (!verdict) {
-      debugLog("Ollama returned an invalid verdict", {
+      debugLog("Groq returned an invalid verdict", {
         requestId,
-        rawResponse: payload.response ?? "",
-        normalizedResponse: normalizeVerdictText(payload.response ?? ""),
-        rawThinking: payload.thinking ?? "",
-        done: payload.done ?? null,
-        doneReason: payload.done_reason ?? null,
-        promptEvalCount: payload.prompt_eval_count ?? null,
-        promptEvalDurationNs: payload.prompt_eval_duration ?? null,
-        evalCount: payload.eval_count ?? null,
-        evalDurationNs: payload.eval_duration ?? null,
+        rawResponse,
+        normalizedResponse: normalizeVerdictText(rawResponse),
+        model: payload.model ?? null,
+        finishReason: payload.choices?.[0]?.finish_reason ?? null,
+        usage: payload.usage ?? null,
         durationMs: Date.now() - startedAt,
       });
 
       throw new ServiceUnavailableError(
-        "Backend spam filtering is unavailable right now because Ollama returned an invalid label.",
+        "Backend spam filtering is unavailable right now because Groq returned an invalid label.",
       );
     }
 
-    debugLog("Ollama classification completed", {
+    debugLog("Groq classification completed", {
       requestId,
       verdict,
+      model: payload.model ?? null,
       durationMs: Date.now() - startedAt,
-      totalDurationNs: payload.total_duration ?? null,
-      loadDurationNs: payload.load_duration ?? null,
-      promptEvalCount: payload.prompt_eval_count ?? null,
-      promptEvalDurationNs: payload.prompt_eval_duration ?? null,
-      evalCount: payload.eval_count ?? null,
-      evalDurationNs: payload.eval_duration ?? null,
-      doneReason: payload.done_reason ?? null,
+      finishReason: payload.choices?.[0]?.finish_reason ?? null,
+      usage: payload.usage ?? null,
     });
 
     return verdict;
@@ -184,24 +255,24 @@ async function requestSpamVerdict(input: SpamFilterInput): Promise<SpamVerdict> 
     }
 
     if (isAbortError(error)) {
-      debugLog("Ollama request timed out", {
+      debugLog("Groq request timed out", {
         requestId,
         durationMs: Date.now() - startedAt,
       });
 
       throw new ServiceUnavailableError(
-        "Backend spam filtering timed out while waiting for Ollama. Please try again.",
+        "Backend spam filtering timed out while waiting for Groq. Please try again.",
       );
     }
 
-    debugLog("Ollama request failed before completion", {
+    debugLog("Groq request failed before completion", {
       requestId,
       durationMs: Date.now() - startedAt,
       error: error instanceof Error ? error.message : "Unknown error",
     });
 
     throw new ServiceUnavailableError(
-      "Backend spam filtering could not reach Ollama. Please make sure Ollama is running and try again.",
+      "Backend spam filtering could not reach Groq. Please verify Groq configuration and try again.",
     );
   } finally {
     clearTimeout(timeoutId);
@@ -219,57 +290,63 @@ export async function assertPostIsNotSpam(input: SpamFilterInput) {
   }
 }
 
-export async function getOllamaDebugStatus() {
+export async function getGroqDebugStatus() {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
   const startedAt = Date.now();
 
   try {
-    debugLog("Checking Ollama health endpoint", {
-      baseUrl: ENV.OLLAMA_BASE_URL,
-      model: ENV.OLLAMA_MODEL,
+    debugLog("Checking Groq models endpoint", {
+      baseUrl: ENV.GROQ_BASE_URL,
+      model: ENV.GROQ_MODEL,
     });
 
-    const response = await fetch(`${ENV.OLLAMA_BASE_URL}/api/tags`, {
+    const response = await fetch(`${ENV.GROQ_BASE_URL}/models`, {
       method: "GET",
+      headers: {
+        Authorization: `Bearer ${ENV.GROQ_KEY}`,
+      },
       signal: controller.signal,
     });
 
     if (!response.ok) {
       return {
         reachable: false,
-        configuredModel: ENV.OLLAMA_MODEL,
+        configuredModel: ENV.GROQ_MODEL,
         statusCode: response.status,
         durationMs: Date.now() - startedAt,
         modelAvailable: false,
-        models: [] as string[],
+        availableModelCount: 0,
+        matchedModels: [] as string[],
       };
     }
 
-    const payload = (await response.json()) as OllamaTagsResponse;
-    const models = (payload.models ?? []).flatMap((model) =>
-      [model.name, model.model].filter((value): value is string => Boolean(value)),
+    const payload = (await response.json()) as GroqModelsResponse;
+    const modelIds = (payload.data ?? []).flatMap((model) =>
+      [model.id].filter((value): value is string => Boolean(value)),
     );
-    const modelAvailable = models.some((modelName) =>
-      modelName === ENV.OLLAMA_MODEL || modelName.startsWith(`${ENV.OLLAMA_MODEL}:`),
+    const matchedModels = [...new Set(modelIds)].filter(
+      (modelId) => modelId === ENV.GROQ_MODEL,
     );
+    const modelAvailable = matchedModels.length > 0;
 
-    debugLog("Ollama health check completed", {
+    debugLog("Groq health check completed", {
       durationMs: Date.now() - startedAt,
       modelAvailable,
-      modelCount: models.length,
+      modelCount: modelIds.length,
     });
 
     return {
       reachable: true,
-      configuredModel: ENV.OLLAMA_MODEL,
+      configuredModel: ENV.GROQ_MODEL,
       statusCode: response.status,
       durationMs: Date.now() - startedAt,
       modelAvailable,
-      models,
+      availableModelCount: modelIds.length,
+      matchedModels,
     };
   } catch (error) {
-    debugLog("Ollama health check failed", {
+    debugLog("Groq health check failed", {
       durationMs: Date.now() - startedAt,
       error: isAbortError(error)
         ? "Request timed out"
@@ -280,11 +357,12 @@ export async function getOllamaDebugStatus() {
 
     return {
       reachable: false,
-      configuredModel: ENV.OLLAMA_MODEL,
+      configuredModel: ENV.GROQ_MODEL,
       statusCode: null as number | null,
       durationMs: Date.now() - startedAt,
       modelAvailable: false,
-      models: [] as string[],
+      availableModelCount: 0,
+      matchedModels: [] as string[],
     };
   } finally {
     clearTimeout(timeoutId);

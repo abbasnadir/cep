@@ -651,7 +651,7 @@ export default function NewPostPage() {
               <p className="mt-3 text-sm leading-7 text-slate-200">
                 {uploadingImages
                   ? "Your selected images are being uploaded to Supabase Storage before the post is created."
-                  : "The backend is checking this post with Ollama before it is created. This can take a few seconds."}
+                  : "The backend is checking this post with Groq using Llama 3.3 70B before it is created. This can take a few seconds."}
               </p>
             </div>
           </div>

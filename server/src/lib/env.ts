@@ -87,25 +87,20 @@ export const ENV = {
     process.env.SUPABASE_SERVICE_KEY,
     "SUPABASE_SERVICE_KEY",
   ),
-  OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL
-    ? requireServerUrl(process.env.OLLAMA_BASE_URL, "OLLAMA_BASE_URL")
-    : "http://127.0.0.1:11434",
-  OLLAMA_MODEL: process.env.OLLAMA_MODEL?.trim() || "qwen3.5",
-  OLLAMA_TIMEOUT_MS: requirePositiveInteger(
-    process.env.OLLAMA_TIMEOUT_MS,
+  GROQ_BASE_URL: process.env.GROQ_BASE_URL
+    ? requireServerUrl(process.env.GROQ_BASE_URL, "GROQ_BASE_URL")
+    : "https://api.groq.com/openai/v1",
+  GROQ_KEY: requireServerEnv(process.env.GROQ_KEY, "GROQ_KEY"),
+  GROQ_MODEL: process.env.GROQ_MODEL?.trim() || "llama-3.3-70b-versatile",
+  GROQ_TIMEOUT_MS: requirePositiveInteger(
+    process.env.GROQ_TIMEOUT_MS,
     120000,
-    "OLLAMA_TIMEOUT_MS",
+    "GROQ_TIMEOUT_MS",
   ),
-  OLLAMA_NUM_PREDICT: requirePositiveInteger(
-    process.env.OLLAMA_NUM_PREDICT,
+  GROQ_MAX_TOKENS: requirePositiveInteger(
+    process.env.GROQ_MAX_TOKENS,
     4,
-    "OLLAMA_NUM_PREDICT",
+    "GROQ_MAX_TOKENS",
   ),
-  OLLAMA_NUM_CTX: requirePositiveInteger(
-    process.env.OLLAMA_NUM_CTX,
-    512,
-    "OLLAMA_NUM_CTX",
-  ),
-  OLLAMA_KEEP_ALIVE: process.env.OLLAMA_KEEP_ALIVE?.trim() || "15m",
-  OLLAMA_DEBUG: requireBoolean(process.env.OLLAMA_DEBUG, true),
+  GROQ_DEBUG: requireBoolean(process.env.GROQ_DEBUG, true),
 } as const;

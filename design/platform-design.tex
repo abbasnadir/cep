@@ -1,0 +1,230 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\setlength{\parskip}{0.7em}
+\setlength{\parindent}{0pt}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!50!black,
+  urlcolor=blue!50!black
+}
+
+\title{UrbanFix / CivicSignal Platform Design Summary}
+\author{Repository-derived design document}
+\date{22 April 2026}
+
+\begin{document}
+\maketitle
+
+\section{Purpose}
+This document consolidates the current repository design into one LaTeX artifact. It is based on the top-level README, TODO list, the files in \texttt{design/}, and the implemented client and server code. It captures both the features already present in the codebase and the near-term product direction, including a new front-page AI chatbot.
+
+\section{Repository Overview}
+The repository is organized into three primary areas:
+\begin{itemize}
+  \item \texttt{client/}: Next.js 16 frontend using React 19 and Supabase client auth.
+  \item \texttt{server/}: Express-based TypeScript API using Supabase as the data and auth backbone.
+  \item \texttt{design/}: architecture, API, database, constraints, feature, and user-flow documents.
+\end{itemize}
+
+Important repository documents reviewed for this summary:
+\begin{itemize}
+  \item \texttt{README.md}
+  \item \texttt{TODO.md}
+  \item \texttt{client/README.md}
+  \item \texttt{design/README.md}
+  \item \texttt{design/features.md}
+  \item \texttt{design/userflow.md}
+  \item \texttt{design/constraints.md}
+  \item \texttt{design/databaseFeatures.md}
+  \item \texttt{design/dbDesign.md}
+  \item \texttt{design/api-design.yml}
+\end{itemize}
+
+\section{Product Vision}
+The platform is an anonymous civic issue reporting system for citizens, NGOs, government staff, and administrators. Citizens report local issues, attach images, discuss and validate posts, and browse a ranked public feed. Institution-side users receive richer triage detail, operational summaries, and moderation capabilities. AI is used as an assistive layer for spam rejection, enrichment, prioritization, and now conversational guidance through a planned front-page chatbot.
+
+\section{Implemented and Planned Features}
+\subsection{Citizen-Facing Features}
+\begin{itemize}
+  \item Supabase-backed authentication for registration, login, logout, and Google OAuth.
+  \item Anonymous-by-default profile setup with public alias, language preference, and onboarding state.
+  \item Public feed available on \texttt{/} and \texttt{/feed}.
+  \item Search and filter controls for issue lookup by text and workflow status.
+  \item Ranked issue cards with severity, status, raise count, comment count, follow count, and media preview.
+  \item Issue detail pages with comment threads and engagement actions.
+  \item Commenting, raising, following, and abuse reporting for authenticated users.
+  \item Post creation flow with category selection, description entry, image upload, anonymity toggle, manual location, and auto-detected location.
+  \item Metadata fallbacks for categories and areas when backend tables are unavailable.
+  \item Guest browsing mode for read-only public access.
+\end{itemize}
+
+\subsection{Institution and Admin Features}
+\begin{itemize}
+  \item Role-aware institution dashboard for NGO staff, government staff, and admins.
+  \item Summary metrics: total posts, unresolved posts, high-priority posts, and resolved posts.
+  \item Severity breakdown and priority queue for operational triage.
+  \item Role-scoped institution actions:
+  \begin{itemize}
+    \item NGO staff: update case status and internal notes within organization scope.
+    \item Government staff: NGO capabilities plus public workflow state changes.
+    \item Admins: global scope, report review, moderation queue visibility, and organization reassignment.
+  \end{itemize}
+  \item Institution-only post detail with exact location, moderation state, case tracking, and optional report history.
+  \item Admin moderation queue for reported posts.
+  \item Audit-safe public workflow history through \texttt{post\_status\_history}.
+\end{itemize}
+
+\subsection{Backend and Data Features}
+\begin{itemize}
+  \item Express route-object architecture with dynamic route loading.
+  \item JWT validation against Supabase JWKS.
+  \item Optional, required, and no-auth route protection modes.
+  \item Dynamic rate-limiting by IP, authenticated user, or hybrid keying.
+  \item CORS restrictions for local development and production.
+  \item Supabase database access for posts, profiles, categories, areas, comments, raises, follows, reports, summaries, and institution case views.
+  \item Supabase Storage support for user-scoped post image uploads.
+  \item Fallback categories and fallback areas when lookup tables are empty or unavailable.
+\end{itemize}
+
+\subsection{AI and Automation Features}
+\begin{itemize}
+  \item Backend spam filtering using Groq with Llama 3.3 70B Versatile before a post is accepted.
+  \item AI assessment model in the design for enrichment status, severity, complexity, translated text, hazard tags, and confidence.
+  \item Priority-based ranking informed by AI severity, engagement, and freshness.
+  \item Planned asynchronous enrichment pipeline for translation, severity analysis, and summary refreshes.
+  \item Planned front-page AI chatbot for guided civic assistance.
+\end{itemize}
+
+\subsection{Front-Page AI Chatbot Addition}
+The new chatbot should appear on the public home/feed page as a lightweight conversational assistant. Its role is not to replace formal reporting, moderation, or institution workflows. Instead, it should reduce friction for new users and improve navigation.
+
+Recommended chatbot responsibilities:
+\begin{itemize}
+  \item Answer common user questions about how to report an issue.
+  \item Explain categories, anonymity, raises, follows, comments, and institution access.
+  \item Help users decide whether to create a new post, open an existing issue, or contact an institution workflow.
+  \item Provide guided prompts such as ``What happened?'', ``Where is it located?'', and ``Does this affect safety, water, roads, or sanitation?''.
+  \item Suggest the correct next page, such as \texttt{/register}, \texttt{/posts/new}, \texttt{/feed}, or \texttt{/institution}.
+  \item Surface safety disclaimers: urgent emergencies should go to emergency channels, not only the app.
+\end{itemize}
+
+Recommended chatbot constraints:
+\begin{itemize}
+  \item It must not expose private moderation information, exact coordinates, or institution-only data.
+  \item It should be advisory and navigational, not authoritative for legal or emergency decisions.
+  \item It should not silently create posts; final post submission must stay explicit.
+  \item It should reuse the same privacy model as the rest of the product.
+  \item It should support multilingual prompting in the future, consistent with the translation helpers already planned.
+\end{itemize}
+
+\section{Architecture Summary}
+\subsection{Frontend}
+The client is a Next.js app using the App Router. It includes:
+\begin{itemize}
+  \item \texttt{AuthProvider} for session tracking and profile hydration.
+  \item Feed, post creation, post detail, login, registration, logout, and institution pages.
+  \item Shared UI components such as the app frame, auth screen, state block, and post card.
+  \item Environment-based API access and Supabase browser client access.
+\end{itemize}
+
+\subsection{Backend}
+The server is an Express app with:
+\begin{itemize}
+  \item route discovery via \texttt{routeHandler.ts}
+  \item auth middleware based on route authorization level
+  \item rate limiting per route policy
+  \item centralized application error handling
+  \item Supabase service-role access for data operations
+  \item health endpoints including Groq reachability and configured-model checks
+\end{itemize}
+
+\subsection{Data Layer}
+Supabase is used for:
+\begin{itemize}
+  \item authentication
+  \item storage
+  \item relational application tables
+  \item future row-level security enforcement
+\end{itemize}
+
+The current design model includes profiles, organizations, areas, categories, posts, post media, AI assessments, comments, raises, follows, reports, status history, institution case views, and summary aggregates.
+
+\section{Current API Surface}
+The implemented route groups align well with the OpenAPI design:
+\begin{itemize}
+  \item \texttt{/health} and \texttt{/health/groq}
+  \item \texttt{/me}
+  \item \texttt{/profiles/register}
+  \item \texttt{/feed}
+  \item \texttt{/categories}
+  \item \texttt{/areas}
+  \item \texttt{/posts}
+  \item \texttt{/posts/:postId}
+  \item \texttt{/posts/:postId/comments}
+  \item \texttt{/posts/:postId/raises}
+  \item \texttt{/posts/:postId/follows}
+  \item \texttt{/posts/:postId/reports}
+  \item \texttt{/institution/posts/:postId}
+  \item \texttt{/institution/summaries/overview}
+  \item \texttt{/institution/summaries/areas/:areaId}
+\end{itemize}
+
+\section{Privacy, Safety, and Access Model}
+\begin{itemize}
+  \item Citizens are represented publicly through aliases rather than direct identity details.
+  \item Exact coordinates are stored privately and intended only for institution-authorized views.
+  \item Institution data access is role-based and organization-aware.
+  \item Moderation state and abuse reports are hidden from normal public users.
+  \item AI-derived severity affects ranking and triage, but moderation remains a separate concern.
+  \item Spam detection rejects non-genuine posts before insertion.
+\end{itemize}
+
+\section{Database and Domain Model Summary}
+The entity model described in the design folder includes:
+\begin{itemize}
+  \item user identity: auth users, profiles, organizations
+  \item geography: areas
+  \item civic taxonomy: categories
+  \item core reporting: posts and media
+  \item engagement: comments, raises, follows
+  \item moderation: reports and moderation states
+  \item triage and audit: status history and institution case views
+  \item analytics: daily summaries and ranking projections
+\end{itemize}
+
+\section{Known Gaps and TODOs}
+The repository TODO list currently identifies:
+\begin{itemize}
+  \item clean the README files and design directory
+  \item update the README to reflect current changes
+  \item add Docker support
+  \item add integration tests
+\end{itemize}
+
+Additional implementation gaps observed from the repository:
+\begin{itemize}
+  \item the client README is still the default Next.js scaffold
+  \item server tests are not implemented beyond a placeholder
+  \item asynchronous enrichment workers are designed but not yet fully realized as a separate runtime
+  \item the AI chatbot is planned but not yet implemented
+\end{itemize}
+
+\section{Recommended Next Steps}
+\begin{enumerate}
+  \item Implement the front-page AI chatbot as a guided assistant embedded in the feed hero or a persistent help drawer.
+  \item Document the chatbot API contract, prompt boundaries, privacy rules, and fallback behavior.
+  \item Add integration tests for auth, posting, engagement, institution workflows, and moderation.
+  \item Replace remaining scaffold documentation with project-specific setup and architecture guidance.
+  \item Introduce a worker abstraction for enrichment and summary refresh operations.
+\end{enumerate}
+
+\section{Conclusion}
+This repository already contains a strong full-stack foundation for an anonymous civic reporting platform: authentication, posting, feed ranking, public discussion, institution triage, and moderation workflows are all represented either in code or in closely aligned design documentation. The new front-page AI chatbot fits naturally into this architecture as a guidance layer that improves discoverability, onboarding, and feature access while preserving the platform's privacy, workflow, and moderation boundaries.
+
+\end{document}

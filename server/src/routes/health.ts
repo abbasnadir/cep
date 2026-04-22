@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import type { RouterObject } from "../../types/router.js";
-import { getOllamaDebugStatus } from "../lib/spamFilter.js";
+import { getGroqDebugStatus } from "../lib/spamFilter.js";
 
 const healthRouter: RouterObject = {
   path: "/health",
@@ -24,17 +24,17 @@ const healthRouter: RouterObject = {
     },
     {
       method: "get",
-      props: "/ollama",
+      props: "/groq",
       authorization: "none",
       rateLimit: "read",
       keyType: "ip",
       handler: async (_req: Request, res: Response) => {
-        const ollama = await getOllamaDebugStatus();
+        const groq = await getGroqDebugStatus();
 
         res.status(200).json({
-          status: ollama.reachable && ollama.modelAvailable ? "ok" : "degraded",
+          status: groq.reachable && groq.modelAvailable ? "ok" : "degraded",
           timestamp: new Date().toISOString(),
-          ollama,
+          groq,
         });
       },
     },
