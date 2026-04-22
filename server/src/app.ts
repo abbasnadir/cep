@@ -45,10 +45,25 @@ app.use(
         return;
       }
 
-      callback(new Error(`Origin ${origin} not allowed by CORS`));
+      callback(new Error("Not Found"));
     },
     credentials: true,
   }),
+);
+
+// Catch CORS errors and convert to 404
+app.use(
+  (
+    err: any,
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction,
+  ) => {
+    if (err.message === "Not Found") {
+      throw new NotFoundError();
+    }
+    next(err);
+  },
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));

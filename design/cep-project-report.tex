@@ -1,0 +1,797 @@
+\documentclass[12pt,a4paper]{report}
+
+\usepackage[a4paper,top=25mm,bottom=25mm,left=30mm,right=20mm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{setspace}
+\usepackage{graphicx}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{caption}
+\usepackage{fancyhdr}
+
+\onehalfspacing
+\setlength{\parindent}{0.5in}
+\setlength{\parskip}{0pt}
+\captionsetup{font=small,labelfont=bf}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  urlcolor=blue,
+  citecolor=black,
+  pdftitle={CivicSignal CEP Project Report}
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  columns=fullflexible,
+  keepspaces=true
+}
+
+\newcommand{\projecttitle}{CivicSignal: An Anonymous Civic Issue Reporting and AI-Assisted Community Engagement Platform}
+\newcommand{\departmentname}{Department of Artificial Intelligence and Machine Learning}
+\newcommand{\institutionname}{Ramdeobaba University, Nagpur}
+\newcommand{\academicyear}{2025--2026}
+\newcommand{\reportmonth}{April 2026}
+
+\begin{document}
+
+\begin{titlepage}
+  \centering
+  {\Large \textbf{\institutionname} \par}
+  \vspace{0.4cm}
+  {\large \textbf{\departmentname} \par}
+  \vspace{1.8cm}
+  {\Huge \textbf{CivicSignal} \par}
+  \vspace{0.4cm}
+  {\Large An Anonymous Civic Issue Reporting and AI-Assisted Community Engagement Platform \par}
+  \vspace{1.8cm}
+  {\large Project Report submitted in partial fulfillment of the requirements for the Community Engagement Project (CEP) \par}
+  \vspace{1.4cm}
+  {\large \textbf{Submitted by} \par}
+  \vspace{0.5cm}
+  \begin{tabular}{>{\bfseries}p{8cm}p{3cm}}
+    Abbas Nadir & Roll No. 29 \\
+    Vedant Kashikar & Roll No. 66 \\
+    Piyush Khokale & Roll No. 43 \\
+    Amey Shendre & Roll No. 10 \\
+    Ayushi Chavhan & Roll No. 6 \\
+  \end{tabular}
+  \vfill
+  \begin{tabular}{p{6cm}p{6cm}}
+    \textbf{Guide:} \mbox{[Name of Guide]} & \textbf{Academic Year:} \academicyear \\
+    \textbf{Partner NGO:} \mbox{[Name of NGO / Community Organization]} & \textbf{Month:} \reportmonth \\
+  \end{tabular}
+\end{titlepage}
+
+\pagenumbering{roman}
+
+\chapter*{Certificate}
+\addcontentsline{toc}{chapter}{Certificate}
+This is to certify that the Community Engagement Project titled \textbf{\projecttitle} is a bonafide work carried out by Abbas Nadir (29), Vedant Kashikar (66), Piyush Khokale (43), Amey Shendre (10), and Ayushi Chavhan (6), submitted to \institutionname{} in partial fulfillment of the requirements of the Community Engagement Project under the \departmentname{} during the academic year \academicyear.
+
+\vspace{1.5cm}
+\begin{tabular}{p{6cm}p{6cm}}
+  \textbf{NGO Coordinator} & \textbf{Project Guide} \\
+  \mbox{[Name and Signature]} & \mbox{[Name and Signature]} \\
+  \mbox{[Organization Name]} & \departmentname \\
+\end{tabular}
+
+\vspace{1.5cm}
+\noindent\textbf{Head of Department:} Dr. Rashmi Welekar \\
+\textbf{Place:} Nagpur \\
+\textbf{Date:} \mbox{[To be filled]}
+
+\chapter*{Declaration}
+\addcontentsline{toc}{chapter}{Declaration}
+We hereby declare that the project report titled \textbf{\projecttitle} is our original work carried out in the \departmentname{} of \institutionname. This work has not been submitted earlier, either in whole or in part, for the award of any degree or diploma at this or any other institution.
+
+\vspace{1.2cm}
+\begin{tabularx}{\textwidth}{>{\bfseries}XcX}
+  Name & Roll No. & Signature \\
+  Abbas Nadir & 29 & \\
+  Vedant Kashikar & 66 & \\
+  Piyush Khokale & 43 & \\
+  Amey Shendre & 10 & \\
+  Ayushi Chavhan & 6 & \\
+\end{tabularx}
+
+\chapter*{NGO Signed Acknowledgement Copy}
+\addcontentsline{toc}{chapter}{NGO Signed Acknowledgement Copy}
+Attach the signed acknowledgement letter from the NGO or community organization on official letterhead in this section before final submission.
+
+\chapter*{Acknowledgement}
+\addcontentsline{toc}{chapter}{Acknowledgement}
+We express our sincere gratitude to our project guide, department faculty, and partner NGO for their guidance, feedback, and support during the planning, development, and documentation of CivicSignal. We thank the open-source communities behind Next.js, React, Express, TypeScript, Supabase, Groq, and related tooling that helped us build this project. We also thank our classmates, peers, and families for their encouragement throughout the CEP journey.
+
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+Urban communities frequently face recurring civic problems such as potholes, drainage failures, broken street lights, sanitation lapses, waterlogging, and encroachment. Existing complaint mechanisms are often fragmented, opaque, and difficult to track. Citizens may also hesitate to report issues because of identity exposure or uncertainty about the correct department or portal.
+
+CivicSignal is a full-stack web platform designed to improve civic reporting, issue visibility, and institutional response. The system allows citizens to register, create anonymous complaints with optional image evidence and location context, browse a ranked public feed, comment on posts, raise issues, follow cases, and report abusive content. The institution side supports NGO staff, government staff, and administrators through a professional dashboard that offers metrics, charts, filtered work queues, case tracking, moderation controls, and role-scoped workflow actions.
+
+The platform is implemented using Next.js 16 and React 19 on the frontend, Express and TypeScript on the backend, and Supabase for authentication, relational storage, and media storage. AI support is integrated through Groq. Groq is currently used for ingestion-time spam filtering and for a signed-in complaint-assistance chatbot that explains app workflows and guides users toward complaint-registration related actions and official grievance channels.
+
+The project combines privacy-aware civic reporting, role-based institutional workflows, and AI-assisted guidance in a single application. It demonstrates how a modern web stack can support community engagement, structured complaint management, and socially relevant software engineering within the CEP framework.
+
+\vspace{0.5cm}
+\noindent\textbf{Keywords:} civic technology, anonymous reporting, community engagement, institutional dashboard, AI-assisted filtering, Groq, Supabase, Next.js, Express, urban governance
+
+\tableofcontents
+\listoffigures
+\listoftables
+
+\clearpage
+\pagenumbering{arabic}
+
+\chapter{Introduction}
+\section{Overview of the Community Engagement Project}
+The Community Engagement Project (CEP) requires students to identify a real-world community problem, engage with stakeholders, and produce a meaningful technical intervention. CivicSignal was developed as a response to a recurring civic challenge: residents often do not know where to report urban issues, do not trust complaint channels, and do not receive transparent progress updates after submitting complaints. The project therefore focuses on building a digital platform that reduces reporting friction while also helping institutions triage and respond more effectively.
+
+\section{Importance of Digital Solutions for Community Problems}
+Many civic issues are repetitive, location-specific, and visible to multiple people, yet complaint systems remain siloed across wards, departments, and organizations. A digital solution can unify intake, structure data, reduce ambiguity, preserve audit history, and give citizens a sense of visibility and participation. A web-based platform is especially relevant because it lowers the access barrier for both citizens and institutions and can be used from mobile browsers as well as desktops.
+
+\section{Objectives of the Website}
+The main objectives of CivicSignal are:
+\begin{enumerate}
+  \item Provide a simple and privacy-aware way for citizens to report civic problems.
+  \item Support anonymous-by-default participation in the public reporting workflow.
+  \item Build a ranked public feed that surfaces important issues through community engagement and AI-informed priority.
+  \item Give NGO staff, government staff, and admins a role-scoped dashboard with actionable summaries and case controls.
+  \item Integrate AI carefully for spam filtering and in-app complaint guidance without weakening privacy boundaries.
+\end{enumerate}
+
+\section{Problem Statement}
+Citizens frequently encounter civic issues but lack a trustworthy, transparent, and convenient reporting mechanism. Existing portals are often department-specific, difficult to discover, and weak in public visibility. At the same time, institutional teams receive fragmented or unstructured complaints and spend effort on prioritization, duplication, and moderation. The problem addressed by CivicSignal is the absence of a unified, privacy-aware, community-facing and institution-facing digital system for reporting, validating, and managing civic issues.
+
+\section{Scope of the Project}
+The current project scope includes:
+\begin{itemize}
+  \item Citizen authentication and profile setup.
+  \item Public feed browsing in guest or signed-in mode.
+  \item Complaint creation with category, language, location, image evidence, and anonymity options.
+  \item Public post detail view with comments, raises, follows, and abuse reporting.
+  \item Role-based institution dashboard for NGO staff, government staff, and admins.
+  \item Groq-based spam filtering and signed-in complaint help chatbot.
+  \item Supabase-backed storage for profile data, posts, media, engagement, and moderation state.
+\end{itemize}
+
+Out of scope for the current submission are native mobile apps, direct integration with government back-office systems, automatic duplicate clustering, and production-grade multilingual UI localization.
+
+\chapter{Community Analysis}
+\section{Description of the Target Community}
+The primary target users are urban and semi-urban residents who experience recurring public issues such as sanitation failures, road damage, water access problems, drainage blockages, and safety-related infrastructure faults. The institution-side stakeholders include NGOs working in civic engagement, government staff involved in response operations, and administrators managing moderation and routing.
+
+\section{Identified Problems}
+Based on the prior project report, design notes, and current platform model, the key problems are:
+\begin{itemize}
+  \item Citizens do not always know the correct channel or department to contact.
+  \item Existing complaint channels can be slow, opaque, or difficult to follow up.
+  \item Public corroboration of issues is weak in traditional complaint systems.
+  \item Fear of identification discourages some users from reporting genuine problems.
+  \item Institutional teams need better triage views, category grouping, and progress tracking.
+  \item Complaint spam, irrelevant content, and vague reports increase triage load.
+\end{itemize}
+
+\section{Need for a Website-Based Solution}
+A website-based solution was chosen because it supports:
+\begin{itemize}
+  \item direct access from smartphones and desktops,
+  \item a single codebase for citizens and institutions,
+  \item low installation friction,
+  \item compatibility with browser geolocation and media upload,
+  \item straightforward cloud deployment and maintenance.
+\end{itemize}
+
+\section{Stakeholders Involved}
+\begin{itemize}
+  \item \textbf{Citizens:} submit reports, browse feed, comment, follow, and raise issues.
+  \item \textbf{NGO staff:} maintain organization-scoped case progress and internal notes.
+  \item \textbf{Government staff:} manage case progress and public workflow movement.
+  \item \textbf{Admins:} global moderation, reassignment, and operational oversight.
+  \item \textbf{Partner NGO / community organization:} domain collaborator for need identification and process understanding.
+\end{itemize}
+
+\chapter{Literature Review}
+\section{Existing Websites and Portals in Similar Domains}
+The provided project report identifies platforms such as FixMyStreet, SeeClickFix, MyGov India, and Swachh City as relevant points of comparison. These systems show the value of digital civic reporting but also reveal gaps around anonymity, community validation, integrated role-based dashboards, and AI-assisted triage.
+
+\section{Technologies Used in Similar Systems}
+Comparable systems commonly use:
+\begin{itemize}
+  \item React or similar frontend frameworks,
+  \item REST APIs with Express, Rails, Django, or Spring Boot,
+  \item PostgreSQL for relational storage,
+  \item cloud-based file storage for evidence upload,
+  \item mapping and location services,
+  \item increasing use of LLM-based summarization or classification.
+\end{itemize}
+
+\section{Limitations of Current Solutions}
+Compared with the current CivicSignal design, common limitations in many existing solutions include:
+\begin{itemize}
+  \item weak anonymity support,
+  \item low transparency around complaint progression,
+  \item absence of community corroboration and engagement signals,
+  \item limited NGO-centric workflows,
+  \item little or no built-in AI assistance for intake guidance and spam filtering.
+\end{itemize}
+
+\chapter{System Requirements}
+\section{Functional Requirements}
+\subsection{Citizen Module}
+\begin{itemize}
+  \item Users can register or log in using email-password or Google OAuth via Supabase.
+  \item Signed-in users can complete a lightweight anonymous profile.
+  \item Guests can browse the public feed and post threads in read-only mode.
+  \item Signed-in users can create issue posts with category, description, language, image uploads, and location mode.
+  \item Signed-in users can comment on, follow, raise, and report posts.
+  \item Signed-in users can access a floating complaint-help chatbot inside the app.
+\end{itemize}
+
+\subsection{Institution Module}
+\begin{itemize}
+  \item NGO staff, government staff, and admins can access a dashboard after authentication and authorization.
+  \item The dashboard shows total reports, unresolved issues, high-priority reports, resolved reports, reported items, and average priority.
+  \item The dashboard provides workflow, severity, case-progress, timeline, category, and area hotspot visual summaries.
+  \item NGO staff can update case progress and internal organizational handling status.
+  \item Government staff can additionally update public workflow states.
+  \item Admins can view moderation queues, review reports, and manage broader institutional operations.
+\end{itemize}
+
+\subsection{AI and Automation Module}
+\begin{itemize}
+  \item Groq is used to classify post submissions as spam or non-spam before post creation.
+  \item Groq powers a signed-in complaint-help assistant with a restricted domain-specific system prompt.
+  \item The broader enrichment model remains designed for future extension with translation, hazard tags, and severity analysis.
+\end{itemize}
+
+\section{Non-Functional Requirements}
+\begin{itemize}
+  \item \textbf{Security:} JWT validation through Supabase JWKS; role-based restrictions on private routes.
+  \item \textbf{Privacy:} public APIs expose alias snapshot and sanitized area, not exact citizen location.
+  \item \textbf{Usability:} mobile-friendly layouts with responsive pages and compact cards.
+  \item \textbf{Performance:} feed and summary views optimized for paginated or compact responses.
+  \item \textbf{Maintainability:} backend follows route-object pattern; design folder acts as implementation reference.
+  \item \textbf{Scalability:} stateless Express API, managed Supabase backend, external AI provider integration.
+\end{itemize}
+
+\section{Hardware and Software Requirements}
+\begin{table}[H]
+\centering
+\caption{Hardware Requirements}
+\begin{tabularx}{\textwidth}{>{\bfseries}lXX}
+\toprule
+Component & Development & Deployment \\
+\midrule
+CPU & 4-core x86-64 or better & 2-core cloud instance or better \\
+RAM & 8 GB recommended & 2--4 GB minimum for app server \\
+Storage & 20+ GB local & Cloud storage plus Supabase Storage \\
+Network & Broadband internet & Stable internet for database and Groq API access \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Software Requirements}
+\begin{tabularx}{\textwidth}{>{\bfseries}lX}
+\toprule
+Component & Version / Detail \\
+\midrule
+Frontend & Next.js 16.1.1, React 19.2.3, Tailwind CSS 4 \\
+Backend & Express 4.22.1, TypeScript 5.9.3, Node.js 20 LTS or later \\
+Authentication & Supabase Auth 2.89.0 \\
+Database & Supabase PostgreSQL \\
+Storage & Supabase Storage \\
+AI Provider & Groq API using Llama 3.3 70B Versatile \\
+Development Tools & pnpm, tsx, nodemon, VS Code \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\chapter{System Design}
+\section{Architecture Diagram}
+CivicSignal follows a client-server-cloud architecture:
+\begin{enumerate}
+  \item \textbf{Client layer:} Next.js frontend for feed, post creation, post detail, auth, institution dashboard, and chatbot widget.
+  \item \textbf{Application layer:} Express API for authentication enforcement, civic data operations, summary generation, moderation actions, spam filtering, and chatbot proxying.
+  \item \textbf{Data layer:} Supabase for authentication, relational data, and media storage.
+  \item \textbf{AI layer:} Groq for spam filtering and in-app complaint help assistant.
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.9\textwidth}{
+\centering
+Browser Client (Next.js) \\
+$\downarrow$ \\
+Express API (Auth, Routes, Business Logic) \\
+$\downarrow$ \\
+Supabase Auth + PostgreSQL + Storage \\
+\hspace{1cm} and \hspace{1cm} Groq Cloud API
+}}
+\caption{CivicSignal High-Level Architecture}
+\end{figure}
+
+\section{Database Design}
+The current database model, as documented in \texttt{design/dbDesign.md}, contains core reporting, identity, geography, engagement, moderation, AI assessment, and summary entities. Major tables include \texttt{profiles}, \texttt{posts}, \texttt{post\_media}, \texttt{post\_comments}, \texttt{post\_raises}, \texttt{post\_follows}, \texttt{post\_reports}, \texttt{post\_status\_history}, \texttt{institution\_case\_views}, and \texttt{daily\_post\_summaries}.
+
+\begin{table}[H]
+\centering
+\caption{Major Entity Groups}
+\begin{tabularx}{\textwidth}{>{\bfseries}lX}
+\toprule
+Group & Main Tables \\
+\midrule
+Identity & \texttt{profiles}, \texttt{institution\_organizations} \\
+Geography & \texttt{areas} \\
+Taxonomy & \texttt{categories} \\
+Core Reporting & \texttt{posts}, \texttt{post\_media} \\
+AI Layer & \texttt{post\_ai\_assessments} \\
+Engagement & \texttt{post\_comments}, \texttt{post\_raises}, \texttt{post\_follows} \\
+Moderation & \texttt{post\_reports} \\
+Audit / Triage & \texttt{post\_status\_history}, \texttt{institution\_case\_views} \\
+Analytics & \texttt{daily\_post\_summaries} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.92\textwidth}{
+\centering
+Refer to \texttt{design/dbDesign.md} for full ER model. \\
+Core relationship summary: Profiles author posts; posts have media, AI assessments, comments, raises, follows, reports, and status history; institution case views connect posts with responder organizations; daily summaries aggregate posts by date, area, category, workflow, and severity.
+}}
+\caption{Entity Relationship Design Summary}
+\end{figure}
+
+\section{UML Diagrams}
+\subsection{Use Case View}
+The main actors are citizen, NGO staff, government staff, and admin. Key use cases include register/login, browse feed, create complaint, view thread, comment, follow, raise, report, view dashboard, update case status, update workflow status, and moderate reported content.
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.9\textwidth}{
+\centering
+Actors: Citizen, NGO Staff, Government Staff, Admin \\
+Citizen: register, login, browse feed, open thread, create complaint, comment, follow, raise, report, use chatbot \\
+NGO Staff: dashboard access, update case progress, add notes \\
+Government Staff: NGO actions + update public workflow \\
+Admin: all institution actions + moderation review and global oversight
+}}
+\caption{Use Case Summary}
+\end{figure}
+
+\subsection{Sequence View for Post Creation}
+The post creation sequence is:
+\begin{enumerate}
+  \item Client loads categories and areas.
+  \item User fills complaint form and optionally uploads images.
+  \item Client uploads images to Supabase Storage.
+  \item Client submits complaint payload to \texttt{POST /posts}.
+  \item Backend calls Groq spam classifier.
+  \item If accepted, backend inserts post and related metadata.
+  \item Client redirects user to the post detail page.
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.9\textwidth}{
+\centering
+Citizen $\rightarrow$ Next.js Client $\rightarrow$ Supabase Storage \\
+Citizen $\rightarrow$ Express API $\rightarrow$ Groq Spam Filter \\
+Express API $\rightarrow$ Supabase PostgreSQL \\
+API Response $\rightarrow$ Post Detail Page
+}}
+\caption{Post Creation Sequence Summary}
+\end{figure}
+
+\section{Wireframes and UI Design}
+The application uses a unified visual language built with Tailwind CSS. The feed uses a social-card style layout, the post composer uses a guided form layout, and the institution dashboard uses metric cards, distribution cards, filters, and work queues.
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.85\textwidth}{
+\centering
+Wireframe Placeholder: Public Feed \\
+Hero banner, search/filter sidebar, ranked post cards, engagement actions, signed-in floating chatbot icon.
+}}
+\caption{Public Feed Wireframe}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.85\textwidth}{
+\centering
+Wireframe Placeholder: Institution Dashboard \\
+KPI cards, workflow/severity/case charts, category and area hotspot panels, focused queue, moderation queue.
+}}
+\caption{Institution Dashboard Wireframe}
+\end{figure}
+
+\chapter{Methodology}
+\section{Development Approach}
+The project was developed incrementally. The team first established design documents for features, constraints, API contracts, and the database model. Implementation then progressed through authentication, feed delivery, post creation, detail view, institution workflows, AI integrations, and reporting documentation.
+
+\section{Tools and Technologies Used}
+\begin{table}[H]
+\centering
+\caption{Tools and Technologies}
+\begin{tabularx}{\textwidth}{>{\bfseries}lX}
+\toprule
+Category & Technology \\
+\midrule
+Frontend Framework & Next.js 16.1.1, React 19.2.3 \\
+Styling & Tailwind CSS 4 \\
+Backend Framework & Express 4.22.1 with TypeScript \\
+Authentication & Supabase Auth, email-password login, Google OAuth \\
+Database & Supabase PostgreSQL \\
+Storage & Supabase Storage \\
+AI Services & Groq chat completions for spam filter and complaint help assistant \\
+API Design & Route-object pattern plus OpenAPI design file \\
+Runtime Tooling & Node.js, pnpm, tsx, nodemon \\
+Version Control & Git and GitHub \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Data Collection Methods}
+The original project report and community-analysis material indicate three main inputs:
+\begin{itemize}
+  \item community survey and observation,
+  \item NGO interaction and workflow discussion,
+  \item secondary research on comparable civic-tech platforms and technical stacks.
+\end{itemize}
+
+\chapter{Implementation}
+\section{Frontend Design and Modules}
+\subsection{Authentication and Session Management}
+The frontend uses an \texttt{AuthProvider} context built on top of Supabase Auth. It fetches the active session, listens to auth state changes, refreshes profile data through \texttt{/me}, and exposes session plus profile state to the rest of the application. Login and registration are implemented through a shared \texttt{AuthScreen} component and support both email-password authentication and Google OAuth.
+
+\subsection{Public Feed}
+The public feed page:
+\begin{itemize}
+  \item fetches ranked or sorted posts from \texttt{/feed},
+  \item supports search by text, category, or area,
+  \item supports workflow filters,
+  \item lets signed-in users follow an issue,
+  \item links to post detail threads,
+  \item shows guest-mode messaging for unauthenticated users.
+\end{itemize}
+
+\subsection{Post Detail}
+The post detail page fetches a single post and its comments, and supports:
+\begin{itemize}
+  \item adding comments,
+  \item toggling raise,
+  \item toggling follow,
+  \item reporting posts,
+  \item reporting inappropriate images through abuse notes,
+  \item viewing AI summary and media evidence.
+\end{itemize}
+
+\subsection{Post Creation Flow}
+The new-post page implements:
+\begin{itemize}
+  \item category and source-language selection,
+  \item description entry,
+  \item image validation and upload to Supabase Storage,
+  \item manual, none, or auto-detected location capture,
+  \item anonymous posting toggle,
+  \item backend post submission with Groq-based spam screening.
+\end{itemize}
+
+\subsection{Institution Dashboard}
+The institution dashboard now includes:
+\begin{itemize}
+  \item KPI cards for total, unresolved, high-priority, resolved, reported, and average priority values,
+  \item workflow mix, severity breakdown, and case-progress distribution cards,
+  \item daily intake chart,
+  \item top categories and area hotspots,
+  \item filterable focused queue by status, severity, category, queue type, search, and sort,
+  \item role-aware case actions,
+  \item admin moderation queue.
+\end{itemize}
+
+\subsection{Signed-In Complaint Help Chatbot}
+The app header includes a floating chat widget visible only to signed-in users. The widget sends user messages to the backend \texttt{/assistant/chat} endpoint, which forwards them to Groq with a tightly restricted context prompt. The assistant is constrained to answer only complaint-related, portal-related, and UrbanFix usage questions in English.
+
+\section{Backend Logic}
+\subsection{Route Architecture}
+The backend dynamically discovers route modules and applies middleware based on a route-object contract. Each route declares method, path, auth level, rate limit, key type, and handler. This keeps the backend consistent and explicit.
+
+\subsection{Implemented API Surface}
+\begin{table}[H]
+\centering
+\caption{Implemented API Routes}
+\begin{tabularx}{\textwidth}{>{\bfseries}l>{\ttfamily}lX}
+\toprule
+Method & Path & Purpose \\
+\midrule
+GET & /health & Base health endpoint \\
+GET & /health/groq & Groq integration health endpoint \\
+GET & /me & Authenticated profile hydration \\
+POST & /profiles/register & Create app profile row \\
+GET & /feed & Public feed retrieval \\
+GET & /categories & Category lookup for signed-in users \\
+GET & /areas & Area lookup for signed-in users \\
+POST & /posts & Create a civic issue post \\
+GET & /posts/:postId & Public post detail \\
+GET & /posts/:postId/comments & Comment list \\
+POST & /posts/:postId/comments & Create comment \\
+POST & /posts/:postId/raises & Toggle raise \\
+POST & /posts/:postId/follows & Toggle follow \\
+POST & /posts/:postId/reports & Report abuse or invalid content \\
+GET & /institution/posts/:postId & Institution-only post detail \\
+PATCH & /institution/posts/:postId & Institution update endpoint \\
+GET & /institution/summaries/overview & Dashboard summary endpoint \\
+GET & /institution/summaries/areas/:areaId & Area summary endpoint \\
+POST & /assistant/chat & Signed-in complaint assistant endpoint \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Spam Filtering}
+Before post insertion, the backend sends a narrow classification prompt to Groq and expects only \texttt{SPAM} or \texttt{NOT\_SPAM}. If the model returns spam or an invalid result, the request is rejected. This keeps the public feed cleaner and reduces non-genuine submissions.
+
+\subsection{Complaint Help Assistant}
+The assistant endpoint sanitizes chat history, constrains message length, and sends the user conversation to Groq with a domain-specific system prompt. This prompt defines the app context, the feed and new-post flows, and hard refusal boundaries for off-topic use.
+
+\subsection{Database Integration}
+The backend uses the Supabase service-role client for application-managed queries and enforces privacy at the application layer. Public data excludes sensitive fields such as exact coordinates, while institution endpoints may include private operational data after role checks.
+
+\section{Code Snippets}
+\subsection*{Route Object Pattern}
+\begin{lstlisting}[caption={Express route-object pattern used in the backend}]
+const assistantRouter: RouterObject = {
+  path: "/assistant",
+  functions: [
+    {
+      method: "post",
+      props: "/chat",
+      authorization: "required",
+      rateLimit: "gameplay",
+      keyType: "user",
+      handler: async (req, res) => {
+        const reply = await getComplaintAssistantReply(req.body);
+        res.status(200).json(reply);
+      },
+    },
+  ],
+};
+\end{lstlisting}
+
+\subsection*{Groq Spam Classification Call}
+\begin{lstlisting}[caption={Groq-based spam filtering request pattern}]
+const response = await fetch(`${ENV.GROQ_BASE_URL}/chat/completions`, {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${ENV.GROQ_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    model: ENV.GROQ_MODEL,
+    messages: [
+      { role: "system", content: buildSystemPrompt() },
+      { role: "user", content: buildPrompt(input) },
+    ],
+    temperature: 0,
+    max_completion_tokens: ENV.GROQ_MAX_TOKENS,
+  }),
+});
+\end{lstlisting}
+
+\subsection*{Groq Complaint Assistant Call}
+\begin{lstlisting}[caption={Complaint help assistant request to Groq}]
+const response = await fetch(`${ENV.GROQ_BASE_URL}/chat/completions`, {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${ENV.GROQ_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    model: ENV.GROQ_CHAT_MODEL,
+    temperature: 0.2,
+    max_completion_tokens: ENV.GROQ_CHAT_MAX_TOKENS,
+    messages: [
+      { role: "system", content: ASSISTANT_SYSTEM_PROMPT },
+      ...history,
+      { role: "user", content: message },
+    ],
+  }),
+});
+\end{lstlisting}
+
+\section{Screenshots of the Website}
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.82\textwidth}{\centering Insert screenshot here: Public feed page with hero section, filters, and ranked post cards.}}
+\caption{Public Feed Page}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.82\textwidth}{\centering Insert screenshot here: New post page showing category, description, image upload, and location controls.}}
+\caption{New Post Page}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.82\textwidth}{\centering Insert screenshot here: Institution dashboard with KPI cards, charts, and filtered work queue.}}
+\caption{Institution Dashboard}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.82\textwidth}{\centering Insert screenshot here: Floating Groq complaint-help chatbot opened for a signed-in user.}}
+\caption{Signed-In Complaint Help Chatbot}
+\end{figure}
+
+\chapter{Results and Impact}
+\section{Website Performance}
+Formal load-test tables have not yet been regenerated for the newest Groq-based architecture, but the current codebase compiles successfully in both client and server builds. Feed, authentication, post creation, and dashboard workflows are implemented end-to-end. The architecture is suitable for continued benchmarking after deployment.
+
+\section{User Value and Community Impact}
+CivicSignal creates value in the following ways:
+\begin{itemize}
+  \item citizens gain a clearer and lower-friction path to file local complaints,
+  \item anonymity lowers hesitation to report sensitive local problems,
+  \item public feed visibility creates community validation and transparency,
+  \item institutions receive structured queues instead of scattered complaint intake,
+  \item AI reduces spam and offers contextual guidance inside the application.
+\end{itemize}
+
+\section{Before vs. After Comparison}
+\begin{table}[H]
+\centering
+\caption{Before and After Comparison}
+\begin{tabularx}{\textwidth}{>{\bfseries}X X}
+\toprule
+Before CivicSignal & After CivicSignal \\
+\midrule
+Citizens rely on fragmented manual complaint channels & Citizens can create structured digital complaints in one platform \\
+No public corroboration of issue urgency & Raises, follows, comments, and ranked visibility show broader impact \\
+Identity disclosure discourages reporting & Anonymous-by-default profile and post design reduce that barrier \\
+Institutions lack summarized operational dashboards & Dashboard provides KPIs, charts, hotspots, and filtered work queues \\
+Complaint noise can overwhelm triage & Groq-based spam filter screens post submissions at ingestion \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Social Impact Analysis}
+The platform aligns with broader social outcomes in transparency, accountability, and civic participation. It supports public visibility of local issues while preserving sensitive identity-linked information. It also demonstrates how AI can be introduced in a bounded and socially useful way: for noise reduction and guided civic assistance rather than for replacing human institutional judgment.
+
+\chapter{Discussion}
+\section{Challenges Faced}
+\begin{itemize}
+  \item Designing anonymity without losing accountability in engagement actions.
+  \item Maintaining different role capabilities in one shared application.
+  \item Handling provider-specific AI failures such as 402 and 429 responses before stabilizing on Groq.
+  \item Building a dashboard that is both professional and actionable for institutions.
+  \item Keeping report data useful for institutions while respecting public privacy constraints.
+\end{itemize}
+
+\section{Limitations of the System}
+\begin{itemize}
+  \item The project currently depends on external Groq API availability for AI features.
+  \item Screenshots and production deployment metrics still need to be finalized for the final printed report.
+  \item Multilingual UI support is not yet fully implemented across all pages.
+  \item Integration testing and CI automation remain limited.
+  \item Government portal integration is advisory only; the chatbot does not submit complaints externally.
+\end{itemize}
+
+\section{Lessons Learned}
+\begin{itemize}
+  \item Strong design documentation reduces rework during implementation.
+  \item Role-scoped workflows must be reflected consistently in both UI and backend authorization.
+  \item AI integration needs fallback strategies because provider behavior and quotas can change.
+  \item Complaint systems require both citizen usability and institutional operability; solving one side alone is not enough.
+\end{itemize}
+
+\chapter{Conclusion and Future Scope}
+\section{Summary of Achievements}
+CivicSignal now includes:
+\begin{itemize}
+  \item working citizen authentication and anonymous profile flows,
+  \item public feed with filters and sorting,
+  \item complaint creation with media and location handling,
+  \item post detail with engagement and reporting actions,
+  \item role-aware institution dashboard with charts and operational queues,
+  \item Groq-based spam filtering,
+  \item signed-in complaint-help chatbot with restricted domain guidance,
+  \item detailed design documentation for database, API, constraints, and user flow.
+\end{itemize}
+
+\section{Possible Improvements}
+\begin{itemize}
+  \item add automated tests for key user and institution flows,
+  \item improve dashboard exports and analytics views,
+  \item add screenshot assets and final field validation for print submission,
+  \item activate more database-level security policies where appropriate,
+  \item add explicit deployment and CI documentation.
+\end{itemize}
+
+\section{Future Enhancements}
+\begin{itemize}
+  \item multilingual chatbot and UI,
+  \item mobile application or PWA enhancements,
+  \item duplicate issue clustering and similarity detection,
+  \item GIS heatmaps and locality trend exploration,
+  \item richer institutional audit trails and notifications,
+  \item optional integration guidance modules for city-specific external grievance portals.
+\end{itemize}
+
+\chapter*{References}
+\addcontentsline{toc}{chapter}{References}
+\begin{thebibliography}{99}
+\bibitem{fixmystreet} mySociety, ``FixMyStreet,'' \url{https://www.fixmystreet.com}
+\bibitem{seeclickfix} SeeClickFix, ``SeeClickFix Platform,'' \url{https://seeclickfix.com}
+\bibitem{supabase} Supabase, ``Supabase Documentation,'' \url{https://supabase.com/docs}
+\bibitem{nextjs} Vercel, ``Next.js Documentation,'' \url{https://nextjs.org/docs}
+\bibitem{express} Express.js, ``Express Documentation,'' \url{https://expressjs.com}
+\bibitem{groq} Groq, ``Groq Documentation,'' \url{https://console.groq.com/docs}
+\bibitem{openapi} OpenAPI Initiative, ``OpenAPI Specification,'' \url{https://spec.openapis.org}
+\bibitem{guidelines} Ramdeobaba University, ``Guidelines for Project Report Preparation,'' provided PDF, 2026.
+\bibitem{priorreport} CivicSignal Team, ``CivicSignal Project Report,'' provided PDF, 2026.
+\end{thebibliography}
+
+\appendix
+
+\chapter{Survey Questionnaire}
+The following survey items may be included as the questionnaire appendix:
+\begin{enumerate}
+  \item How often do you encounter civic problems in your locality?
+  \item Have you ever reported a civic issue formally?
+  \item If not, what stopped you from reporting it?
+  \item Do you use a smartphone with internet access?
+  \item Which language would you prefer in a complaint platform?
+  \item Would anonymity increase your willingness to report?
+  \item Which issue categories are most common in your area?
+  \item Would you use a mobile-friendly website for civic complaints?
+\end{enumerate}
+
+\chapter{Source Code Snippets}
+\section*{Complaint Assistant System Prompt Excerpt}
+\begin{lstlisting}
+You help users inside UrbanFix app.
+Answer only complaint, reporting, grievance routing,
+UrbanFix usage, and official portal guidance questions.
+Reply in English.
+\end{lstlisting}
+
+\section*{Frontend Chat Widget Trigger}
+\begin{lstlisting}
+if (loading || !session) {
+  return null;
+}
+\end{lstlisting}
+
+\chapter{Appendix Notes for Final Submission}
+Before final submission, update the following placeholders in this report:
+\begin{itemize}
+  \item guide name and signatures,
+  \item NGO name and signed acknowledgement copy,
+  \item department-approved title page details,
+  \item final screenshots of implemented pages,
+  \item any validated field-study numbers or feedback statistics,
+  \item final project PDF filename per university naming rules.
+\end{itemize}
+
+\end{document}
