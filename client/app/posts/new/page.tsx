@@ -59,7 +59,10 @@ type SelectedImage = {
 };
 
 function sanitizeFilename(filename: string) {
-  const normalized = filename.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-");
+  const normalized = filename
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-");
   return normalized || "upload.jpg";
 }
 
@@ -68,11 +71,13 @@ async function uploadPostImages(userId: string, images: SelectedImage[]) {
 
   for (const image of images) {
     const storagePath = `${userId}/${crypto.randomUUID()}-${sanitizeFilename(image.file.name)}`;
-    const uploadResult = await supabase.storage.from(POST_IMAGE_BUCKET).upload(storagePath, image.file, {
-      cacheControl: "3600",
-      contentType: image.file.type || "image/jpeg",
-      upsert: false,
-    });
+    const uploadResult = await supabase.storage
+      .from(POST_IMAGE_BUCKET)
+      .upload(storagePath, image.file, {
+        cacheControl: "3600",
+        contentType: image.file.type || "image/jpeg",
+        upsert: false,
+      });
 
     if (uploadResult.error) {
       throw new Error(`Image upload failed: ${uploadResult.error.message}`);
@@ -91,9 +96,13 @@ async function removeUploadedImages(images: UploadableMedia[]) {
   const paths = images.map((image) => image.storagePath).filter(Boolean);
   if (!paths.length) return;
 
-  const removeResult = await supabase.storage.from(POST_IMAGE_BUCKET).remove(paths);
+  const removeResult = await supabase.storage
+    .from(POST_IMAGE_BUCKET)
+    .remove(paths);
   if (removeResult.error) {
-    console.warn(`Failed to clean up uploaded images: ${removeResult.error.message}`);
+    console.warn(
+      `Failed to clean up uploaded images: ${removeResult.error.message}`,
+    );
   }
 }
 
@@ -110,7 +119,8 @@ async function loadComposerMeta(accessToken: string): Promise<ComposerMeta> {
   const messages: string[] = [];
 
   const categories =
-    categoryResponse.status === "fulfilled" && categoryResponse.value.items.length
+    categoryResponse.status === "fulfilled" &&
+    categoryResponse.value.items.length
       ? categoryResponse.value.items
       : ISSUE_CATEGORIES;
   if (categoryResponse.status === "rejected") {
@@ -127,7 +137,9 @@ async function loadComposerMeta(accessToken: string): Promise<ComposerMeta> {
   let usingFallbackAreas = false;
   if (areaResponse.status === "fulfilled") {
     const allAreas = areaResponse.value.items;
-    const localityAreas = allAreas.filter((area) => area.areaType === "locality");
+    const localityAreas = allAreas.filter(
+      (area) => area.areaType === "locality",
+    );
     areas = pickPreferredAreas(allAreas);
 
     if (!allAreas.length) {
@@ -301,7 +313,9 @@ export default function NewPostPage() {
         return;
       }
 
-      setGeoError(positionError.message || "Unable to detect your current location.");
+      setGeoError(
+        positionError.message || "Unable to detect your current location.",
+      );
     };
 
     const startWatchFallback = () => {
@@ -341,16 +355,19 @@ export default function NewPostPage() {
 
     const runRequest = (useHighAccuracy: boolean) => {
       clearGeoTimeout();
-      geoRequestTimeoutRef.current = window.setTimeout(() => {
-        if (geoRequestIdRef.current !== requestId) {
-          return;
-        }
+      geoRequestTimeoutRef.current = window.setTimeout(
+        () => {
+          if (geoRequestIdRef.current !== requestId) {
+            return;
+          }
 
-        setGeoStatus("error");
-        setGeoError(
-          "Location detection is taking longer than expected. If it does not finish soon, try detecting again or choose an area manually.",
-        );
-      }, useHighAccuracy ? GEO_FAST_TIMEOUT_MS : GEO_STANDARD_TIMEOUT_MS);
+          setGeoStatus("error");
+          setGeoError(
+            "Location detection is taking longer than expected. If it does not finish soon, try detecting again or choose an area manually.",
+          );
+        },
+        useHighAccuracy ? GEO_FAST_TIMEOUT_MS : GEO_STANDARD_TIMEOUT_MS,
+      );
 
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -362,16 +379,26 @@ export default function NewPostPage() {
           }
 
           clearGeoTimeout();
-          if (useHighAccuracy && (positionError.code === 2 || positionError.code === 3)) {
+          if (
+            useHighAccuracy &&
+            (positionError.code === 2 || positionError.code === 3)
+          ) {
             setGeoStatus("requesting");
-            setGeoError("High-accuracy lookup failed. Retrying with standard accuracy...");
+            setGeoError(
+              "High-accuracy lookup failed. Retrying with standard accuracy...",
+            );
             runRequest(false);
             return;
           }
 
-          if (!useHighAccuracy && (positionError.code === 2 || positionError.code === 3)) {
+          if (
+            !useHighAccuracy &&
+            (positionError.code === 2 || positionError.code === 3)
+          ) {
             setGeoStatus("requesting");
-            setGeoError("Single-shot lookup failed. Waiting for a location fix...");
+            setGeoError(
+              "Single-shot lookup failed. Waiting for a location fix...",
+            );
             startWatchFallback();
             return;
           }
@@ -380,7 +407,9 @@ export default function NewPostPage() {
         },
         {
           enableHighAccuracy: useHighAccuracy,
-          timeout: useHighAccuracy ? GEO_FAST_TIMEOUT_MS : GEO_STANDARD_TIMEOUT_MS,
+          timeout: useHighAccuracy
+            ? GEO_FAST_TIMEOUT_MS
+            : GEO_STANDARD_TIMEOUT_MS,
           maximumAge: useHighAccuracy ? 300000 : 600000,
         },
       );
@@ -418,9 +447,11 @@ export default function NewPostPage() {
         setUsingFallbackAreas(meta.usingFallbackAreas);
         setForm((current) => ({
           ...current,
-          categoryId: meta.categories.some((category) => category.id === current.categoryId)
+          categoryId: meta.categories.some(
+            (category) => category.id === current.categoryId,
+          )
             ? current.categoryId
-            : meta.categories[0]?.id ?? "",
+            : (meta.categories[0]?.id ?? ""),
           areaId: meta.areas.some((area) => area.id === current.areaId)
             ? current.areaId
             : "",
@@ -494,7 +525,9 @@ export default function NewPostPage() {
 
     const oversized = imageFiles.find((file) => file.size > MAX_IMAGE_BYTES);
     if (oversized) {
-      setError(`Each image must be smaller than ${Math.round(MAX_IMAGE_BYTES / 1024 / 1024)} MB.`);
+      setError(
+        `Each image must be smaller than ${Math.round(MAX_IMAGE_BYTES / 1024 / 1024)} MB.`,
+      );
       return;
     }
 
@@ -558,7 +591,9 @@ export default function NewPostPage() {
     }
 
     if (form.locationMode === "auto_detected" && !geoPoint) {
-      setError("Automatic location is still unavailable. Allow location access or choose an area manually.");
+      setError(
+        "Automatic location is still unavailable. Allow location access or choose an area manually.",
+      );
       return;
     }
 
@@ -576,13 +611,17 @@ export default function NewPostPage() {
       location: {
         mode: form.locationMode,
         areaId:
-          form.locationMode === "manual" && form.areaId ? form.areaId : undefined,
+          form.locationMode === "manual" && form.areaId
+            ? form.areaId
+            : undefined,
         areaLabel:
           form.locationMode === "manual" && form.areaLabel.trim()
             ? form.areaLabel.trim()
             : undefined,
         geoPoint:
-          form.locationMode === "auto_detected" && geoPoint ? geoPoint : undefined,
+          form.locationMode === "auto_detected" && geoPoint
+            ? geoPoint
+            : undefined,
       },
       media: [],
     };
@@ -590,7 +629,10 @@ export default function NewPostPage() {
     try {
       if (selectedImages.length) {
         setUploadingImages(true);
-        uploadedImages = await uploadPostImages(session.user.id, selectedImages);
+        uploadedImages = await uploadPostImages(
+          session.user.id,
+          selectedImages,
+        );
         payload.media = uploadedImages;
       }
 
@@ -621,7 +663,12 @@ export default function NewPostPage() {
   }
 
   if (loading) {
-    return <StateBlock title="Loading session" description="Checking your account." />;
+    return (
+      <StateBlock
+        title="Loading session"
+        description="Checking your account."
+      />
+    );
   }
 
   if (!session) {
@@ -661,7 +708,8 @@ export default function NewPostPage() {
           Publish a new civic issue
         </h1>
         <p className="mt-3 text-sm leading-7 text-slate-300">
-          Add a description, optional location, and up to four supporting images for the issue.
+          Add a description, optional location, and up to four supporting images
+          for the issue.
         </p>
 
         {metaError && (
@@ -671,7 +719,7 @@ export default function NewPostPage() {
         )}
 
         {error && (
-          <div className="mt-5 rounded-[24px] border border-rose-400/30 bg-rose-400/10 p-4 text-sm text-rose-100">
+          <div className="mt-5 rounded-[24px] border border-rose-500/40 bg-rose-200/85 p-4 text-sm text-black">
             {error}
           </div>
         )}
@@ -692,7 +740,10 @@ export default function NewPostPage() {
                 className="select-field mt-2"
                 value={form.categoryId}
                 onChange={(event) =>
-                  setForm((current) => ({ ...current, categoryId: event.target.value }))
+                  setForm((current) => ({
+                    ...current,
+                    categoryId: event.target.value,
+                  }))
                 }
                 disabled={metaLoading || !categories.length}
               >
@@ -738,7 +789,10 @@ export default function NewPostPage() {
               className="textarea-field mt-2"
               value={form.description}
               onChange={(event) =>
-                setForm((current) => ({ ...current, description: event.target.value }))
+                setForm((current) => ({
+                  ...current,
+                  description: event.target.value,
+                }))
               }
               placeholder="Describe what is happening, who is affected, and why it needs attention."
             />
@@ -752,10 +806,13 @@ export default function NewPostPage() {
                 accept="image/*"
                 multiple
                 onChange={handleImageSelection}
-                disabled={submitting || selectedImages.length >= MAX_IMAGE_UPLOADS}
+                disabled={
+                  submitting || selectedImages.length >= MAX_IMAGE_UPLOADS
+                }
               />
               <p className="mt-2 text-xs leading-6 text-slate-400">
-                Upload up to {MAX_IMAGE_UPLOADS} images. Each image can be up to {Math.round(MAX_IMAGE_BYTES / 1024 / 1024)} MB.
+                Upload up to {MAX_IMAGE_UPLOADS} images. Each image can be up to{" "}
+                {Math.round(MAX_IMAGE_BYTES / 1024 / 1024)} MB.
               </p>
 
               {selectedImages.length > 0 && (
@@ -772,7 +829,9 @@ export default function NewPostPage() {
                       />
                       <div className="mt-3 flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-white">{image.file.name}</p>
+                          <p className="truncate text-sm font-medium text-white">
+                            {image.file.name}
+                          </p>
                           <p className="text-xs text-slate-400">
                             {(image.file.size / 1024 / 1024).toFixed(1)} MB
                           </p>
@@ -823,18 +882,24 @@ export default function NewPostPage() {
               >
                 <option value="none">Global or no location</option>
                 <option value="manual">Choose an area</option>
-                <option value="auto_detected">Detect my current location</option>
+                <option value="auto_detected">
+                  Detect my current location
+                </option>
               </select>
               <p className="mt-2 text-xs leading-6 text-slate-400">
-                Choose manual location to attach the post to a backend area or type a label yourself, or use your browser location for automatic detection.
+                Choose manual location to attach the post to a backend area or
+                type a label yourself, or use your browser location for
+                automatic detection.
               </p>
               {form.locationMode === "auto_detected" && (
                 <div className="mt-2 space-y-2 text-xs leading-6 text-slate-400">
                   <p>
                     {geoStatus === "idle" &&
                       "Click detect current location to ask the browser for your coordinates."}
-                    {geoStatus === "requesting" && "Requesting browser location access..."}
-                    {geoStatus === "ready" && "Current coordinates detected and ready to send with the post."}
+                    {geoStatus === "requesting" &&
+                      "Requesting browser location access..."}
+                    {geoStatus === "ready" &&
+                      "Current coordinates detected and ready to send with the post."}
                     {geoStatus === "unsupported" && geoError}
                     {geoStatus === "error" && geoError}
                   </p>
@@ -846,11 +911,14 @@ export default function NewPostPage() {
                       requestCurrentLocation();
                     }}
                   >
-                    {geoStatus === "ready" ? "Detect again" : "Detect current location"}
+                    {geoStatus === "ready"
+                      ? "Detect again"
+                      : "Detect current location"}
                   </button>
                   {geoPoint && (
                     <p>
-                      Latitude {geoPoint.latitude.toFixed(5)}, longitude {geoPoint.longitude.toFixed(5)}
+                      Latitude {geoPoint.latitude.toFixed(5)}, longitude{" "}
+                      {geoPoint.longitude.toFixed(5)}
                     </p>
                   )}
                 </div>
@@ -865,7 +933,10 @@ export default function NewPostPage() {
                     className="select-field mt-2"
                     value={form.areaId}
                     onChange={(event) =>
-                      setForm((current) => ({ ...current, areaId: event.target.value }))
+                      setForm((current) => ({
+                        ...current,
+                        areaId: event.target.value,
+                      }))
                     }
                   >
                     <option value="">Select an area</option>
@@ -893,7 +964,10 @@ export default function NewPostPage() {
                   className="field mt-3"
                   value={form.areaLabel}
                   onChange={(event) =>
-                    setForm((current) => ({ ...current, areaLabel: event.target.value }))
+                    setForm((current) => ({
+                      ...current,
+                      areaLabel: event.target.value,
+                    }))
                   }
                   placeholder={
                     areas.length
@@ -910,14 +984,21 @@ export default function NewPostPage() {
               type="checkbox"
               checked={form.isAnonymous}
               onChange={(event) =>
-                setForm((current) => ({ ...current, isAnonymous: event.target.checked }))
+                setForm((current) => ({
+                  ...current,
+                  isAnonymous: event.target.checked,
+                }))
               }
             />
             Publish this report anonymously by default
           </label>
 
           <div className="flex flex-wrap gap-3">
-            <button type="submit" disabled={submitting} className="button-primary">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="button-primary"
+            >
               {submitting ? "Checking for spam..." : "Publish post"}
             </button>
           </div>

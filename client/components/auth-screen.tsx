@@ -69,7 +69,9 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
       }
     } catch (authError) {
       setError(
-        authError instanceof Error ? authError.message : "Authentication failed.",
+        authError instanceof Error
+          ? authError.message
+          : "Authentication failed.",
       );
     } finally {
       setBusy(false);
@@ -91,7 +93,9 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
       if (authError) throw authError;
     } catch (authError) {
       setError(
-        authError instanceof Error ? authError.message : "Google sign-in failed.",
+        authError instanceof Error
+          ? authError.message
+          : "Google sign-in failed.",
       );
       setBusy(false);
     }
@@ -107,22 +111,28 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
             : "Create an anonymous civic account"}
         </h1>
         <p className="mt-5 max-w-2xl text-base leading-8 text-slate-300">
-          Use email or Google to authenticate with Supabase. Once you&apos;re in, the app
-          takes you to the live feed and backend-powered post flows.
+          Use email or Google to authenticate with Supabase. Once you&apos;re
+          in, the app takes you to the live feed and backend-powered post flows.
         </p>
 
         <div className="mt-8 grid gap-4 md:grid-cols-3">
           <div className="surface-muted rounded-[24px] border border-white/10 p-5">
             <p className="label-text">Auth</p>
-            <p className="mt-3 text-sm leading-7 text-slate-300">Supabase session management</p>
+            <p className="mt-3 text-sm leading-7 text-slate-300">
+              Supabase session management
+            </p>
           </div>
           <div className="surface-muted rounded-[24px] border border-white/10 p-5">
             <p className="label-text">Posting</p>
-            <p className="mt-3 text-sm leading-7 text-slate-300">Create and manage civic issues</p>
+            <p className="mt-3 text-sm leading-7 text-slate-300">
+              Create and manage civic issues
+            </p>
           </div>
           <div className="surface-muted rounded-[24px] border border-white/10 p-5">
             <p className="label-text">Response</p>
-            <p className="mt-3 text-sm leading-7 text-slate-300">Institution summaries and triage</p>
+            <p className="mt-3 text-sm leading-7 text-slate-300">
+              Institution summaries and triage
+            </p>
           </div>
         </div>
       </div>
@@ -136,7 +146,10 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
                 className="field mt-2"
                 value={form.alias}
                 onChange={(event) =>
-                  setForm((current) => ({ ...current, alias: event.target.value }))
+                  setForm((current) => ({
+                    ...current,
+                    alias: event.target.value,
+                  }))
                 }
                 placeholder="street-watch-21"
               />
@@ -150,7 +163,10 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
               type="email"
               value={form.email}
               onChange={(event) =>
-                setForm((current) => ({ ...current, email: event.target.value }))
+                setForm((current) => ({
+                  ...current,
+                  email: event.target.value,
+                }))
               }
               placeholder="name@example.com"
             />
@@ -163,14 +179,17 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
               type="password"
               value={form.password}
               onChange={(event) =>
-                setForm((current) => ({ ...current, password: event.target.value }))
+                setForm((current) => ({
+                  ...current,
+                  password: event.target.value,
+                }))
               }
               placeholder="Use a strong password"
             />
           </label>
 
           {error && (
-            <div className="rounded-[22px] border border-rose-400/30 bg-rose-400/10 p-4 text-sm text-rose-100">
+            <div className="rounded-[22px] border border-rose-500/40 bg-rose-200/85 p-4 text-sm text-black">
               {error}
             </div>
           )}
@@ -189,7 +208,12 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
                   ? "Continue with email"
                   : "Create account"}
             </button>
-            <button type="button" disabled={busy} onClick={handleGoogle} className="button-secondary">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={handleGoogle}
+              className="button-secondary"
+            >
               Continue with Google
             </button>
           </div>
@@ -197,7 +221,10 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
 
         <p className="mt-6 text-sm text-slate-400">
           {mode === "login" ? "Need an account?" : "Already registered?"}{" "}
-          <Link href={mode === "login" ? "/register" : "/login"} className="text-cyan-300">
+          <Link
+            href={mode === "login" ? "/register" : "/login"}
+            className="text-cyan-300"
+          >
             {mode === "login" ? "Register here" : "Log in here"}
           </Link>
         </p>

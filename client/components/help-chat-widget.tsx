@@ -131,7 +131,7 @@ export function HelpChatWidget() {
             )}
 
             {error && (
-              <div className="rounded-[18px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              <div className="rounded-[18px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-black">
                 {error}
               </div>
             )}

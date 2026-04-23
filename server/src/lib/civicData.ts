@@ -11,7 +11,12 @@ import { assertPostIsNotSpam } from "./spamFilter.js";
 
 type DbRow = Record<string, any>;
 const POST_MEDIA_BUCKET = "post_images";
-const APP_ROLES = new Set(["citizen", "ngo_staff", "government_staff", "admin"]);
+const APP_ROLES = new Set([
+  "citizen",
+  "ngo_staff",
+  "government_staff",
+  "admin",
+]);
 const INSTITUTION_ROLES = ["ngo_staff", "government_staff", "admin"] as const;
 const WORKFLOW_STATUSES = [
   "open",
@@ -20,10 +25,27 @@ const WORKFLOW_STATUSES = [
   "resolved",
   "rejected",
 ] as const;
-const CASE_STATUSES = ["triage", "investigating", "responding", "monitoring", "closed"] as const;
-const SUMMARY_QUEUE_FILTERS = ["all", "active", "high_priority", "reported"] as const;
+const CASE_STATUSES = [
+  "triage",
+  "investigating",
+  "responding",
+  "monitoring",
+  "closed",
+] as const;
+const SUMMARY_QUEUE_FILTERS = [
+  "all",
+  "active",
+  "high_priority",
+  "reported",
+] as const;
 const SUMMARY_SORTS = ["priority_desc", "newest", "oldest"] as const;
-const SEVERITY_LEVELS = ["critical", "high", "medium", "low", "unknown"] as const;
+const SEVERITY_LEVELS = [
+  "critical",
+  "high",
+  "medium",
+  "low",
+  "unknown",
+] as const;
 const REPORT_REVIEW_STATUSES = [
   "pending_review",
   "dismissed",
@@ -68,22 +90,102 @@ const DEFAULT_CATEGORIES = [
   { slug: "environment", label: "Environment", severityHint: "medium" },
 ] as const;
 const DEFAULT_AREAS = [
-  { id: "builtin-india", name: "India", areaType: "country", parentAreaId: null },
-  { id: "builtin-delhi", name: "Delhi", areaType: "city", parentAreaId: "builtin-india" },
-  { id: "builtin-dwarka", name: "Dwarka", areaType: "locality", parentAreaId: "builtin-delhi" },
-  { id: "builtin-saket", name: "Saket", areaType: "locality", parentAreaId: "builtin-delhi" },
-  { id: "builtin-mumbai", name: "Mumbai", areaType: "city", parentAreaId: "builtin-india" },
-  { id: "builtin-andheri", name: "Andheri", areaType: "locality", parentAreaId: "builtin-mumbai" },
-  { id: "builtin-bandra", name: "Bandra", areaType: "locality", parentAreaId: "builtin-mumbai" },
-  { id: "builtin-bengaluru", name: "Bengaluru", areaType: "city", parentAreaId: "builtin-india" },
-  { id: "builtin-indiranagar", name: "Indiranagar", areaType: "locality", parentAreaId: "builtin-bengaluru" },
-  { id: "builtin-whitefield", name: "Whitefield", areaType: "locality", parentAreaId: "builtin-bengaluru" },
-  { id: "builtin-kolkata", name: "Kolkata", areaType: "city", parentAreaId: "builtin-india" },
-  { id: "builtin-salt-lake", name: "Salt Lake", areaType: "locality", parentAreaId: "builtin-kolkata" },
-  { id: "builtin-park-street", name: "Park Street", areaType: "locality", parentAreaId: "builtin-kolkata" },
-  { id: "builtin-chennai", name: "Chennai", areaType: "city", parentAreaId: "builtin-india" },
-  { id: "builtin-adyar", name: "Adyar", areaType: "locality", parentAreaId: "builtin-chennai" },
-  { id: "builtin-t-nagar", name: "T Nagar", areaType: "locality", parentAreaId: "builtin-chennai" },
+  {
+    id: "builtin-india",
+    name: "India",
+    areaType: "country",
+    parentAreaId: null,
+  },
+  {
+    id: "builtin-delhi",
+    name: "Delhi",
+    areaType: "city",
+    parentAreaId: "builtin-india",
+  },
+  {
+    id: "builtin-dwarka",
+    name: "Dwarka",
+    areaType: "locality",
+    parentAreaId: "builtin-delhi",
+  },
+  {
+    id: "builtin-saket",
+    name: "Saket",
+    areaType: "locality",
+    parentAreaId: "builtin-delhi",
+  },
+  {
+    id: "builtin-mumbai",
+    name: "Mumbai",
+    areaType: "city",
+    parentAreaId: "builtin-india",
+  },
+  {
+    id: "builtin-andheri",
+    name: "Andheri",
+    areaType: "locality",
+    parentAreaId: "builtin-mumbai",
+  },
+  {
+    id: "builtin-bandra",
+    name: "Bandra",
+    areaType: "locality",
+    parentAreaId: "builtin-mumbai",
+  },
+  {
+    id: "builtin-bengaluru",
+    name: "Bengaluru",
+    areaType: "city",
+    parentAreaId: "builtin-india",
+  },
+  {
+    id: "builtin-indiranagar",
+    name: "Indiranagar",
+    areaType: "locality",
+    parentAreaId: "builtin-bengaluru",
+  },
+  {
+    id: "builtin-whitefield",
+    name: "Whitefield",
+    areaType: "locality",
+    parentAreaId: "builtin-bengaluru",
+  },
+  {
+    id: "builtin-kolkata",
+    name: "Kolkata",
+    areaType: "city",
+    parentAreaId: "builtin-india",
+  },
+  {
+    id: "builtin-salt-lake",
+    name: "Salt Lake",
+    areaType: "locality",
+    parentAreaId: "builtin-kolkata",
+  },
+  {
+    id: "builtin-park-street",
+    name: "Park Street",
+    areaType: "locality",
+    parentAreaId: "builtin-kolkata",
+  },
+  {
+    id: "builtin-chennai",
+    name: "Chennai",
+    areaType: "city",
+    parentAreaId: "builtin-india",
+  },
+  {
+    id: "builtin-adyar",
+    name: "Adyar",
+    areaType: "locality",
+    parentAreaId: "builtin-chennai",
+  },
+  {
+    id: "builtin-t-nagar",
+    name: "T Nagar",
+    areaType: "locality",
+    parentAreaId: "builtin-chennai",
+  },
 ] as const;
 
 const UUID_REGEX =
@@ -101,7 +203,11 @@ function assertUuid(value: string | undefined, name: string): string {
   return value;
 }
 
-function ensureSuccess<T>(data: T, error: { message: string } | null, message?: string): T {
+function ensureSuccess<T>(
+  data: T,
+  error: { message: string } | null,
+  message?: string,
+): T {
   if (error) {
     throw new Error(message ?? error.message);
   }
@@ -119,18 +225,28 @@ function assertEnumValue<T extends readonly string[]>(
   allowed: T,
   name: string,
 ): T[number] {
-  assert(typeof value === "string" && allowed.includes(value), `${name} is invalid`);
+  assert(
+    typeof value === "string" && allowed.includes(value),
+    `${name} is invalid`,
+  );
   return value as T[number];
 }
 
 function resolveInstitutionAccess(role: unknown) {
   const resolvedRole = resolveAppRole(role);
 
-  if (!INSTITUTION_ROLES.includes(resolvedRole as (typeof INSTITUTION_ROLES)[number])) {
+  if (
+    !INSTITUTION_ROLES.includes(
+      resolvedRole as (typeof INSTITUTION_ROLES)[number],
+    )
+  ) {
     return null;
   }
 
-  const access = INSTITUTION_ACCESS_BY_ROLE[resolvedRole as keyof typeof INSTITUTION_ACCESS_BY_ROLE];
+  const access =
+    INSTITUTION_ACCESS_BY_ROLE[
+      resolvedRole as keyof typeof INSTITUTION_ACCESS_BY_ROLE
+    ];
 
   return {
     role: resolvedRole as (typeof INSTITUTION_ROLES)[number],
@@ -145,7 +261,9 @@ function resolveInstitutionAccess(role: unknown) {
   };
 }
 
-function mapInstitutionAccess(access: NonNullable<ReturnType<typeof resolveInstitutionAccess>>) {
+function mapInstitutionAccess(
+  access: NonNullable<ReturnType<typeof resolveInstitutionAccess>>,
+) {
   return {
     role: access.role,
     scope: access.scope,
@@ -185,7 +303,9 @@ function mergeCategoryRows(rows: DbRow[]) {
     });
   }
 
-  return Array.from(merged.values()).sort((left, right) => left.label.localeCompare(right.label));
+  return Array.from(merged.values()).sort((left, right) =>
+    left.label.localeCompare(right.label),
+  );
 }
 
 function resolveAppRole(role: unknown) {
@@ -253,7 +373,10 @@ function severityWeight(severity?: string | null): number {
   return 0;
 }
 
-function groupByPostId(rows: DbRow[], key = "post_id"): Record<string, DbRow[]> {
+function groupByPostId(
+  rows: DbRow[],
+  key = "post_id",
+): Record<string, DbRow[]> {
   return rows.reduce<Record<string, DbRow[]>>((accumulator, row) => {
     const id = row[key];
     if (!id) return accumulator;
@@ -274,13 +397,18 @@ function countByPostId(rows: DbRow[], key = "post_id"): Record<string, number> {
 
 function parsePagination(request: Request) {
   const page = Math.max(1, Number(request.query.page ?? 1) || 1);
-  const limit = Math.min(50, Math.max(1, Number(request.query.limit ?? 20) || 20));
+  const limit = Math.min(
+    50,
+    Math.max(1, Number(request.query.limit ?? 20) || 20),
+  );
   return { page, limit };
 }
 
 function parseDateRange(request: Request) {
-  const from = typeof request.query.from === "string" ? request.query.from : undefined;
-  const to = typeof request.query.to === "string" ? request.query.to : undefined;
+  const from =
+    typeof request.query.from === "string" ? request.query.from : undefined;
+  const to =
+    typeof request.query.to === "string" ? request.query.to : undefined;
 
   if (from && Number.isNaN(Date.parse(from))) {
     throw new BadRequestError("from must be a valid date");
@@ -310,9 +438,7 @@ async function fetchAreasByIds(areaIds: string[]) {
     return new Map<string, DbRow>();
   }
 
-  return new Map(
-    (data ?? []).map((row) => [row.id, row]),
-  );
+  return new Map((data ?? []).map((row) => [row.id, row]));
 }
 
 async function fetchCategoriesByIds(categoryIds: string[]) {
@@ -328,20 +454,28 @@ async function fetchCategoriesByIds(categoryIds: string[]) {
     return new Map<string, DbRow>();
   }
 
-  return new Map(
-    (data ?? []).map((row) => [row.id, row]),
-  );
+  return new Map((data ?? []).map((row) => [row.id, row]));
 }
 
-async function fetchPostRowsByIds(postIds: string[], options?: { includeExactLocation?: boolean }) {
+async function fetchPostRowsByIds(
+  postIds: string[],
+  options?: { includeExactLocation?: boolean },
+) {
   if (!postIds.length) return [];
 
   const select =
     "id, author_id, category_id, area_id, public_alias_snapshot, description, source_language, display_language, workflow_status, enrichment_status, priority_score, is_anonymous, sanitized_area_label, created_at, updated_at" +
     (options?.includeExactLocation ? ", latitude, longitude" : "");
 
-  const { data, error } = await supabase.from("posts").select(select).in("id", postIds);
-  const rows = ensureSuccess(data ?? [], error, "Failed to load posts") as DbRow[];
+  const { data, error } = await supabase
+    .from("posts")
+    .select(select)
+    .in("id", postIds);
+  const rows = ensureSuccess(
+    data ?? [],
+    error,
+    "Failed to load posts",
+  ) as DbRow[];
   const rowMap = new Map<string, DbRow>(rows.map((row) => [row.id, row]));
   const orderedRows: DbRow[] = [];
 
@@ -362,7 +496,9 @@ async function resolveCategoryId(categoryInput: string) {
     return categoryInput;
   }
 
-  const fallbackCategory = DEFAULT_CATEGORIES.find((category) => category.slug === categoryInput);
+  const fallbackCategory = DEFAULT_CATEGORIES.find(
+    (category) => category.slug === categoryInput,
+  );
   assert(fallbackCategory, "categoryId is not recognized");
 
   const existingCategoryResult = await supabase
@@ -397,7 +533,10 @@ async function resolveCategoryId(categoryInput: string) {
     createdCategoryResult.error,
     "Failed to create fallback category",
   );
-  assert(createdCategory?.id, "Fallback category creation did not return an id");
+  assert(
+    createdCategory?.id,
+    "Fallback category creation did not return an id",
+  );
   return createdCategory.id;
 }
 
@@ -414,7 +553,9 @@ async function fetchOrganizationsByIds(organizationIds: string[]) {
     .in("id", organizationIds);
 
   return new Map(
-    ensureSuccess(data ?? [], error, "Failed to load organizations").map((row) => [row.id, row]),
+    ensureSuccess(data ?? [], error, "Failed to load organizations").map(
+      (row) => [row.id, row],
+    ),
   );
 }
 
@@ -433,7 +574,9 @@ export async function fetchProfileById(userId: string) {
 
   const [areaMap, organizationMap] = await Promise.all([
     fetchAreasByIds(profile.home_area_id ? [profile.home_area_id] : []),
-    fetchOrganizationsByIds(profile.organization_id ? [profile.organization_id] : []),
+    fetchOrganizationsByIds(
+      profile.organization_id ? [profile.organization_id] : [],
+    ),
   ]);
 
   return {
@@ -502,27 +645,39 @@ export function mapProfileResponse(profile: DbRow, user: Request["user"]) {
 }
 
 async function fetchPostSupportData(postIds: string[]) {
-  const [mediaResult, aiResult, commentResult, raiseResult, reportResult, followResult] =
-    await Promise.all([
-      supabase
-        .from("post_media")
-        .select("id, post_id, storage_bucket, storage_path, media_type")
-        .in("post_id", postIds),
-      supabase
-        .from("post_ai_assessments")
-        .select(
-          "post_id, enrichment_status, severity_level, complexity_level, summary, translated_text, hazard_tags, confidence_score, model_version, processed_at",
-        )
-        .in("post_id", postIds),
-      supabase
-        .from("post_comments")
-        .select("post_id")
-        .in("post_id", postIds)
-        .eq("is_deleted", false),
-      supabase.from("post_raises").select("post_id").in("post_id", postIds),
-      supabase.from("post_reports").select("post_id, created_at").in("post_id", postIds),
-      supabase.from("post_follows").select("post_id, user_id").in("post_id", postIds),
-    ]);
+  const [
+    mediaResult,
+    aiResult,
+    commentResult,
+    raiseResult,
+    reportResult,
+    followResult,
+  ] = await Promise.all([
+    supabase
+      .from("post_media")
+      .select("id, post_id, storage_bucket, storage_path, media_type")
+      .in("post_id", postIds),
+    supabase
+      .from("post_ai_assessments")
+      .select(
+        "post_id, enrichment_status, severity_level, complexity_level, summary, translated_text, hazard_tags, confidence_score, model_version, processed_at",
+      )
+      .in("post_id", postIds),
+    supabase
+      .from("post_comments")
+      .select("post_id")
+      .in("post_id", postIds)
+      .eq("is_deleted", false),
+    supabase.from("post_raises").select("post_id").in("post_id", postIds),
+    supabase
+      .from("post_reports")
+      .select("post_id, created_at")
+      .in("post_id", postIds),
+    supabase
+      .from("post_follows")
+      .select("post_id, user_id")
+      .in("post_id", postIds),
+  ]);
 
   return {
     mediaRows: ensureSuccess(
@@ -577,7 +732,8 @@ function mapMedia(mediaRows: DbRow[]) {
     id: row.id,
     mediaType: row.media_type,
     url: row.storage_bucket
-      ? supabase.storage.from(row.storage_bucket).getPublicUrl(row.storage_path).data.publicUrl
+      ? supabase.storage.from(row.storage_bucket).getPublicUrl(row.storage_path)
+          .data.publicUrl
       : row.storage_path,
     thumbnailUrl: null,
   }));
@@ -590,8 +746,12 @@ export async function hydratePosts(
   if (!rows.length) return [];
 
   const postIds = rows.map((row) => row.id);
-  const categoryIds = Array.from(new Set(rows.map((row) => row.category_id).filter(Boolean)));
-  const areaIds = Array.from(new Set(rows.map((row) => row.area_id).filter(Boolean)));
+  const categoryIds = Array.from(
+    new Set(rows.map((row) => row.category_id).filter(Boolean)),
+  );
+  const areaIds = Array.from(
+    new Set(rows.map((row) => row.area_id).filter(Boolean)),
+  );
 
   const [categoryMap, areaMap, supportData] = await Promise.all([
     fetchCategoriesByIds(categoryIds),
@@ -617,7 +777,8 @@ export async function hydratePosts(
     const category = categoryMap.get(row.category_id);
     const area = areaMap.get(row.area_id);
     const ai = aiByPost[row.id]?.[0];
-    const description = typeof row.description === "string" ? row.description : "";
+    const description =
+      typeof row.description === "string" ? row.description : "";
 
     return {
       id: row.id,
@@ -627,7 +788,9 @@ export async function hydratePosts(
       descriptionExcerpt: toExcerpt(description),
       sourceLanguage: row.source_language ?? null,
       displayLanguage: row.display_language ?? null,
-      authorAlias: row.is_anonymous ? "anonymous" : row.public_alias_snapshot ?? "anonymous",
+      authorAlias: row.is_anonymous
+        ? "anonymous"
+        : (row.public_alias_snapshot ?? "anonymous"),
       area: mapArea(area, row.sanitized_area_label),
       workflowStatus: row.workflow_status ?? "open",
       enrichmentStatus: row.enrichment_status ?? "pending",
@@ -668,7 +831,11 @@ export async function hydratePosts(
 
 export async function fetchPostDetail(
   postId: string,
-  options?: { includeExactLocation?: boolean; viewerUserId?: string },
+  options?: {
+    includeExactLocation?: boolean;
+    viewerUserId?: string;
+    viewerRole?: string;
+  },
 ) {
   const { data, error } = await supabase
     .from("posts")
@@ -683,11 +850,21 @@ export async function fetchPostDetail(
     throw new NotFoundError("Post not found");
   }
 
+  const resolvedViewerRole = resolveAppRole(options?.viewerRole);
+  const canViewRejected = Boolean(resolveInstitutionAccess(resolvedViewerRole));
+  if (row.workflow_status === "rejected" && !canViewRejected) {
+    throw new NotFoundError("Post not found");
+  }
+
   const [post] = await hydratePosts([row], options);
   return post;
 }
 
-export async function fetchComments(postId: string, page: number, limit: number) {
+export async function fetchComments(
+  postId: string,
+  page: number,
+  limit: number,
+) {
   const from = (page - 1) * limit;
   const to = from + limit - 1;
 
@@ -699,13 +876,15 @@ export async function fetchComments(postId: string, page: number, limit: number)
     .order("created_at", { ascending: false })
     .range(from, to);
 
-  return ensureSuccess(data ?? [], error, "Failed to load comments").map((row) => ({
-    id: row.id,
-    postId: row.post_id,
-    body: row.body,
-    authorAlias: row.public_alias_snapshot ?? "anonymous",
-    createdAt: row.created_at,
-  }));
+  return ensureSuccess(data ?? [], error, "Failed to load comments").map(
+    (row) => ({
+      id: row.id,
+      postId: row.post_id,
+      body: row.body,
+      authorAlias: row.public_alias_snapshot ?? "anonymous",
+      createdAt: row.created_at,
+    }),
+  );
 }
 
 export async function fetchFeed(request: Request) {
@@ -713,11 +892,15 @@ export async function fetchFeed(request: Request) {
   const areaId =
     typeof request.query.areaId === "string" ? request.query.areaId : undefined;
   const categoryId =
-    typeof request.query.categoryId === "string" ? request.query.categoryId : undefined;
+    typeof request.query.categoryId === "string"
+      ? request.query.categoryId
+      : undefined;
   const status =
     typeof request.query.status === "string" ? request.query.status : undefined;
   const sort =
     typeof request.query.sort === "string" ? request.query.sort : "ranked";
+  const resolvedViewerRole = resolveAppRole(request.user?.role);
+  const canViewRejected = Boolean(resolveInstitutionAccess(resolvedViewerRole));
 
   const query = supabase
     .from("posts")
@@ -728,6 +911,7 @@ export async function fetchFeed(request: Request) {
 
   if (areaId) query.eq("area_id", assertUuid(areaId, "areaId"));
   if (categoryId) query.eq("category_id", assertUuid(categoryId, "categoryId"));
+  if (!canViewRejected) query.neq("workflow_status", "rejected");
   if (status) query.eq("workflow_status", status);
 
   const { data, error } = await query;
@@ -782,20 +966,32 @@ async function fetchReportedQueue(limit = 5) {
     .order("created_at", { ascending: false })
     .limit(Math.max(limit * 4, limit));
 
-  const reportRows = ensureSuccess(data ?? [], error, "Failed to load reported posts") as DbRow[];
+  const reportRows = ensureSuccess(
+    data ?? [],
+    error,
+    "Failed to load reported posts",
+  ) as DbRow[];
   const orderedPostIds = Array.from(
     new Set(reportRows.map((row) => row.post_id).filter(Boolean)),
   ).slice(0, limit);
 
   if (!orderedPostIds.length) return [];
 
-  const reportedRows = await fetchPostRowsByIds(orderedPostIds, { includeExactLocation: true });
+  const reportedRows = await fetchPostRowsByIds(orderedPostIds, {
+    includeExactLocation: true,
+  });
   return hydratePosts(reportedRows, { includeExactLocation: true });
 }
 
-export async function fetchSummary(request: Request, areaId?: string, institutionProfile?: DbRow) {
+export async function fetchSummary(
+  request: Request,
+  areaId?: string,
+  institutionProfile?: DbRow,
+) {
   const { from, to, hasExplicitRange } = parseDateRange(request);
-  const access = institutionProfile ? resolveInstitutionAccess(institutionProfile.role) : null;
+  const access = institutionProfile
+    ? resolveInstitutionAccess(institutionProfile.role)
+    : null;
   const queue =
     typeof request.query.queue === "string"
       ? assertEnumValue(request.query.queue, SUMMARY_QUEUE_FILTERS, "queue")
@@ -809,11 +1005,13 @@ export async function fetchSummary(request: Request, areaId?: string, institutio
       ? assertEnumValue(request.query.status, WORKFLOW_STATUSES, "status")
       : undefined;
   const severity =
-    typeof request.query.severity === "string" && request.query.severity !== "all"
+    typeof request.query.severity === "string" &&
+    request.query.severity !== "all"
       ? assertEnumValue(request.query.severity, SEVERITY_LEVELS, "severity")
       : undefined;
   const categoryId =
-    typeof request.query.categoryId === "string" && request.query.categoryId.trim()
+    typeof request.query.categoryId === "string" &&
+    request.query.categoryId.trim()
       ? request.query.categoryId.trim()
       : undefined;
   const search =
@@ -842,33 +1040,60 @@ export async function fetchSummary(request: Request, areaId?: string, institutio
   if (areaId) query.eq("area_id", assertUuid(areaId, "areaId"));
 
   const { data, error } = await query;
-  const posts = ensureSuccess(data ?? [], error, "Failed to load posts for summary");
+  const posts = ensureSuccess(
+    data ?? [],
+    error,
+    "Failed to load posts for summary",
+  );
   const postIds = posts.map((post) => post.id);
 
   let caseViewQuery = supabase
     .from("institution_case_views")
     .select("post_id, case_status, organization_id")
-    .in("post_id", postIds.length ? postIds : ["00000000-0000-0000-0000-000000000000"]);
+    .in(
+      "post_id",
+      postIds.length ? postIds : ["00000000-0000-0000-0000-000000000000"],
+    );
 
   if (access?.scope === "organization" && institutionProfile?.organization_id) {
-    caseViewQuery = caseViewQuery.eq("organization_id", institutionProfile.organization_id);
+    caseViewQuery = caseViewQuery.eq(
+      "organization_id",
+      institutionProfile.organization_id,
+    );
   }
 
-  const [categories, areaMap, aiResult, reportsResult, caseViewsResult] = await Promise.all([
-    fetchCategoriesByIds(Array.from(new Set(posts.map((post) => post.category_id).filter(Boolean)))),
-    fetchAreasByIds(Array.from(new Set(posts.map((post) => post.area_id).filter(Boolean)))),
-    supabase
-      .from("post_ai_assessments")
-      .select("post_id, severity_level")
-      .in("post_id", postIds.length ? postIds : ["00000000-0000-0000-0000-000000000000"]),
-    supabase
-      .from("post_reports")
-      .select("post_id, review_status")
-      .in("post_id", postIds.length ? postIds : ["00000000-0000-0000-0000-000000000000"]),
-    caseViewQuery,
-  ]);
+  const [categories, areaMap, aiResult, reportsResult, caseViewsResult] =
+    await Promise.all([
+      fetchCategoriesByIds(
+        Array.from(
+          new Set(posts.map((post) => post.category_id).filter(Boolean)),
+        ),
+      ),
+      fetchAreasByIds(
+        Array.from(new Set(posts.map((post) => post.area_id).filter(Boolean))),
+      ),
+      supabase
+        .from("post_ai_assessments")
+        .select("post_id, severity_level")
+        .in(
+          "post_id",
+          postIds.length ? postIds : ["00000000-0000-0000-0000-000000000000"],
+        ),
+      supabase
+        .from("post_reports")
+        .select("post_id, review_status")
+        .in(
+          "post_id",
+          postIds.length ? postIds : ["00000000-0000-0000-0000-000000000000"],
+        ),
+      caseViewQuery,
+    ]);
 
-  const aiRows = ensureSuccess(aiResult.data ?? [], aiResult.error, "Failed to load severity data");
+  const aiRows = ensureSuccess(
+    aiResult.data ?? [],
+    aiResult.error,
+    "Failed to load severity data",
+  );
   const reportRows = ensureSuccess(
     reportsResult.data ?? [],
     reportsResult.error,
@@ -902,37 +1127,56 @@ export async function fetchSummary(request: Request, areaId?: string, institutio
     ? {
         from: posts
           .reduce((earliest, post) =>
-            new Date(post.created_at).getTime() < new Date(earliest.created_at).getTime()
+            new Date(post.created_at).getTime() <
+            new Date(earliest.created_at).getTime()
               ? post
               : earliest,
           )
           .created_at.slice(0, 10),
         to: posts
           .reduce((latest, post) =>
-            new Date(post.created_at).getTime() > new Date(latest.created_at).getTime()
+            new Date(post.created_at).getTime() >
+            new Date(latest.created_at).getTime()
               ? post
               : latest,
           )
           .created_at.slice(0, 10),
       }
     : {
-        from: from ?? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+        from:
+          from ??
+          new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .slice(0, 10),
         to: to ?? new Date().toISOString().slice(0, 10),
       };
 
   const totals = {
     totalPosts: posts.length,
-    unresolvedPosts: posts.filter((post) => post.workflow_status !== "resolved").length,
-    highPriorityPosts: posts.filter((post) => Number(post.priority_score ?? 0) >= 75).length,
-    resolvedPosts: posts.filter((post) => post.workflow_status === "resolved").length,
-    acknowledgedPosts: posts.filter((post) => post.workflow_status === "acknowledged").length,
-    inProgressPosts: posts.filter((post) => post.workflow_status === "in_progress").length,
+    unresolvedPosts: posts.filter((post) => post.workflow_status !== "resolved")
+      .length,
+    highPriorityPosts: posts.filter(
+      (post) => Number(post.priority_score ?? 0) >= 75,
+    ).length,
+    resolvedPosts: posts.filter((post) => post.workflow_status === "resolved")
+      .length,
+    acknowledgedPosts: posts.filter(
+      (post) => post.workflow_status === "acknowledged",
+    ).length,
+    inProgressPosts: posts.filter(
+      (post) => post.workflow_status === "in_progress",
+    ).length,
     reportedPosts: reportRows.length,
-    pendingEnrichmentPosts: posts.filter((post) => post.enrichment_status !== "completed").length,
+    pendingEnrichmentPosts: posts.filter(
+      (post) => post.enrichment_status !== "completed",
+    ).length,
     avgPriorityScore: posts.length
       ? Number(
           (
-            posts.reduce((sum, post) => sum + Number(post.priority_score ?? 0), 0) / posts.length
+            posts.reduce(
+              (sum, post) => sum + Number(post.priority_score ?? 0),
+              0,
+            ) / posts.length
           ).toFixed(1),
         )
       : 0,
@@ -948,21 +1192,32 @@ export async function fetchSummary(request: Request, areaId?: string, institutio
     .map(([severity, count]) => ({ severity, count }))
     .sort(
       (left, right) =>
-        SEVERITY_LEVELS.indexOf(left.severity as (typeof SEVERITY_LEVELS)[number]) -
-        SEVERITY_LEVELS.indexOf(right.severity as (typeof SEVERITY_LEVELS)[number]),
+        SEVERITY_LEVELS.indexOf(
+          left.severity as (typeof SEVERITY_LEVELS)[number],
+        ) -
+        SEVERITY_LEVELS.indexOf(
+          right.severity as (typeof SEVERITY_LEVELS)[number],
+        ),
     );
 
   const byCategory = Array.from(
     posts.reduce<Map<string, number>>((accumulator, post) => {
-      accumulator.set(post.category_id, (accumulator.get(post.category_id) ?? 0) + 1);
+      accumulator.set(
+        post.category_id,
+        (accumulator.get(post.category_id) ?? 0) + 1,
+      );
       return accumulator;
     }, new Map()),
-  ).map(([categoryId, count]) => ({
-    categoryId,
-    label: categories.get(categoryId)?.display_name ?? "Uncategorized",
-    count,
-  }))
-    .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label))
+  )
+    .map(([categoryId, count]) => ({
+      categoryId,
+      label: categories.get(categoryId)?.display_name ?? "Uncategorized",
+      count,
+    }))
+    .sort(
+      (left, right) =>
+        right.count - left.count || left.label.localeCompare(right.label),
+    )
     .slice(0, 8);
 
   const byStatus = Array.from(
@@ -984,35 +1239,50 @@ export async function fetchSummary(request: Request, areaId?: string, institutio
   ).map(([status, count]) => ({ status, count }));
 
   const timeline = Array.from(
-    postRecords.reduce<Map<string, { date: string; totalPosts: number; highPriorityPosts: number }>>(
-      (accumulator, post) => {
-        const date = new Date(post.created_at).toISOString().slice(0, 10);
-        const current = accumulator.get(date) ?? {
-          date,
-          totalPosts: 0,
-          highPriorityPosts: 0,
-        };
+    postRecords.reduce<
+      Map<
+        string,
+        { date: string; totalPosts: number; highPriorityPosts: number }
+      >
+    >((accumulator, post) => {
+      const date = new Date(post.created_at).toISOString().slice(0, 10);
+      const current = accumulator.get(date) ?? {
+        date,
+        totalPosts: 0,
+        highPriorityPosts: 0,
+      };
 
-        current.totalPosts += 1;
-        if (Number(post.priority_score ?? 0) >= 75) {
-          current.highPriorityPosts += 1;
-        }
+      current.totalPosts += 1;
+      if (Number(post.priority_score ?? 0) >= 75) {
+        current.highPriorityPosts += 1;
+      }
 
-        accumulator.set(date, current);
-        return accumulator;
-      },
-      new Map(),
-    ),
+      accumulator.set(date, current);
+      return accumulator;
+    }, new Map()),
   )
     .map(([, value]) => value)
     .sort((left, right) => left.date.localeCompare(right.date));
 
   const byArea = Array.from(
     postRecords.reduce<
-      Map<string, { area: ReturnType<typeof mapArea>; totals: { totalPosts: number; unresolvedPosts: number; highPriorityPosts: number } }>
+      Map<
+        string,
+        {
+          area: ReturnType<typeof mapArea>;
+          totals: {
+            totalPosts: number;
+            unresolvedPosts: number;
+            highPriorityPosts: number;
+          };
+        }
+      >
     >((accumulator, post) => {
       const areaKey = post.area_id ?? "global";
-      const resolvedArea = mapArea(areaMap.get(post.area_id), post.sanitized_area_label);
+      const resolvedArea = mapArea(
+        areaMap.get(post.area_id),
+        post.sanitized_area_label,
+      );
       const current = accumulator.get(areaKey) ?? {
         area: resolvedArea,
         totals: {
@@ -1047,7 +1317,10 @@ export async function fetchSummary(request: Request, areaId?: string, institutio
     if (severity && post.severity !== severity) return false;
     if (categoryId && post.category_id !== categoryId) return false;
 
-    if (queue === "active" && ["resolved", "rejected"].includes(post.workflow_status ?? "open")) {
+    if (
+      queue === "active" &&
+      ["resolved", "rejected"].includes(post.workflow_status ?? "open")
+    ) {
       return false;
     }
 
@@ -1074,11 +1347,17 @@ export async function fetchSummary(request: Request, areaId?: string, institutio
 
   const sortedQueue = [...filteredQueue].sort((left, right) => {
     if (sort === "newest") {
-      return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
+      return (
+        new Date(right.created_at).getTime() -
+        new Date(left.created_at).getTime()
+      );
     }
 
     if (sort === "oldest") {
-      return new Date(left.created_at).getTime() - new Date(right.created_at).getTime();
+      return (
+        new Date(left.created_at).getTime() -
+        new Date(right.created_at).getTime()
+      );
     }
 
     return (
@@ -1105,7 +1384,9 @@ export async function fetchSummary(request: Request, areaId?: string, institutio
         .filter((row): row is DbRow => Boolean(row)),
       { includeExactLocation: true },
     ),
-    access?.canViewReportedQueue ? fetchReportedQueue(5) : Promise.resolve(undefined),
+    access?.canViewReportedQueue
+      ? fetchReportedQueue(5)
+      : Promise.resolve(undefined),
   ]);
 
   const result: DbRow = {
@@ -1166,7 +1447,8 @@ export async function fetchAreas(request: Request) {
     typeof request.query.parentAreaId === "string"
       ? request.query.parentAreaId
       : undefined;
-  const type = typeof request.query.type === "string" ? request.query.type : undefined;
+  const type =
+    typeof request.query.type === "string" ? request.query.type : undefined;
   const requestedLimit = Number(request.query.limit);
   const limit = Number.isFinite(requestedLimit)
     ? Math.min(200, Math.max(1, requestedLimit))
@@ -1182,7 +1464,8 @@ export async function fetchAreas(request: Request) {
     .limit(limit);
 
   if (q) query.ilike("name", `%${q}%`);
-  if (parentAreaId) query.eq("parent_area_id", assertUuid(parentAreaId, "parentAreaId"));
+  if (parentAreaId)
+    query.eq("parent_area_id", assertUuid(parentAreaId, "parentAreaId"));
   if (type) query.eq("area_type", type);
 
   const { data, error } = await query;
@@ -1227,8 +1510,14 @@ export async function fetchCategories() {
 
 export async function createProfile(userId: string, body: DbRow) {
   assert(typeof body.publicAlias === "string", "publicAlias is required");
-  assert(body.publicAlias.trim().length >= 3, "publicAlias must be at least 3 characters");
-  assert(typeof body.preferredLanguage === "string", "preferredLanguage is required");
+  assert(
+    body.publicAlias.trim().length >= 3,
+    "publicAlias must be at least 3 characters",
+  );
+  assert(
+    typeof body.preferredLanguage === "string",
+    "preferredLanguage is required",
+  );
   const existingProfile = await fetchProfileById(userId);
 
   const payload = {
@@ -1242,11 +1531,13 @@ export async function createProfile(userId: string, body: DbRow) {
     home_area_id:
       body.homeAreaId !== undefined
         ? body.homeAreaId
-        : existingProfile?.home_area_id ?? null,
+        : (existingProfile?.home_area_id ?? null),
     onboarding_complete: true,
   };
 
-  const { error } = await supabase.from("profiles").upsert(payload, { onConflict: "id" });
+  const { error } = await supabase
+    .from("profiles")
+    .upsert(payload, { onConflict: "id" });
   ensureSuccess(null, error, "Failed to create or update profile");
 
   return requireProfile(userId);
@@ -1265,7 +1556,9 @@ export async function createPost(userId: string, body: DbRow) {
     typeof body.location?.geoPoint?.latitude === "number" &&
     typeof body.location?.geoPoint?.longitude === "number";
   const areaLabel =
-    typeof body.location?.areaLabel === "string" ? body.location.areaLabel.trim() : "";
+    typeof body.location?.areaLabel === "string"
+      ? body.location.areaLabel.trim()
+      : "";
   const requestedAreaId =
     body.location?.mode === "manual" && typeof body.location.areaId === "string"
       ? body.location.areaId
@@ -1279,7 +1572,8 @@ export async function createPost(userId: string, body: DbRow) {
       areaId = resolvedAreaId;
       const areaMap = await fetchAreasByIds([resolvedAreaId]);
       assert(areaMap.has(resolvedAreaId), "location.areaId is not recognized");
-      sanitizedAreaLabel = areaLabel || areaMap.get(resolvedAreaId)?.name || "Global";
+      sanitizedAreaLabel =
+        areaLabel || areaMap.get(resolvedAreaId)?.name || "Global";
     } else {
       const builtinArea = resolveBuiltinArea(requestedAreaId);
       assert(builtinArea, "location.areaId is not recognized");
@@ -1300,7 +1594,9 @@ export async function createPost(userId: string, body: DbRow) {
     description,
     locationMode,
     locationLabel: sanitizedAreaLabel,
-    ...(typeof body.categoryId === "string" ? { categoryHint: body.categoryId } : {}),
+    ...(typeof body.categoryId === "string"
+      ? { categoryHint: body.categoryId }
+      : {}),
   });
 
   const { data, error } = await supabase
@@ -1311,11 +1607,12 @@ export async function createPost(userId: string, body: DbRow) {
       area_id: areaId,
       public_alias_snapshot: profile.public_alias,
       description,
-      source_language: body.sourceLanguage ?? profile.preferred_language ?? "en",
+      source_language:
+        body.sourceLanguage ?? profile.preferred_language ?? "en",
       display_language:
         Array.isArray(body.translateTargets) && body.translateTargets[0]
           ? body.translateTargets[0]
-          : body.sourceLanguage ?? profile.preferred_language ?? "en",
+          : (body.sourceLanguage ?? profile.preferred_language ?? "en"),
       visibility: "public",
       workflow_status: "open",
       enrichment_status: "pending",
@@ -1356,7 +1653,11 @@ export async function createPost(userId: string, body: DbRow) {
   return fetchPostDetail(createdPost.id);
 }
 
-export async function createComment(userId: string, postId: string, body: DbRow) {
+export async function createComment(
+  userId: string,
+  postId: string,
+  body: DbRow,
+) {
   assert(typeof body.body === "string" && body.body.trim(), "body is required");
   await fetchPostDetail(postId);
   const profile = await requireProfile(userId);
@@ -1476,7 +1777,11 @@ export async function toggleFollow(userId: string, postId: string) {
   };
 }
 
-export async function createReport(userId: string, postId: string, body: DbRow) {
+export async function createReport(
+  userId: string,
+  postId: string,
+  body: DbRow,
+) {
   assert(typeof body.reasonCode === "string", "reasonCode is required");
   await fetchPostDetail(postId);
 
@@ -1502,13 +1807,18 @@ export async function createReport(userId: string, postId: string, body: DbRow) 
   };
 }
 
-export async function fetchInstitutionPostDetail(postId: string, institutionProfile: DbRow) {
+export async function fetchInstitutionPostDetail(
+  postId: string,
+  institutionProfile: DbRow,
+) {
   const access = resolveInstitutionAccess(institutionProfile.role);
   if (!access) {
     throw new ForbiddenError("Institution access required");
   }
 
-  const [postRow] = await fetchPostRowsByIds([postId], { includeExactLocation: true });
+  const [postRow] = await fetchPostRowsByIds([postId], {
+    includeExactLocation: true,
+  });
   if (!postRow) {
     throw new NotFoundError("Post not found");
   }
@@ -1527,7 +1837,10 @@ export async function fetchInstitutionPostDetail(postId: string, institutionProf
     .order("updated_at", { ascending: false });
 
   if (access.scope === "organization" && institutionProfile.organization_id) {
-    caseViewQuery = caseViewQuery.eq("organization_id", institutionProfile.organization_id);
+    caseViewQuery = caseViewQuery.eq(
+      "organization_id",
+      institutionProfile.organization_id,
+    );
   }
 
   const caseViewResult = await caseViewQuery.maybeSingle();
@@ -1545,7 +1858,9 @@ export async function fetchInstitutionPostDetail(postId: string, institutionProf
   const organizationMap = await fetchOrganizationsByIds(
     caseView?.organization_id ? [caseView.organization_id] : [],
   );
-  const pendingReports = reportRows.filter((row) => row.review_status === "pending_review");
+  const pendingReports = reportRows.filter(
+    (row) => row.review_status === "pending_review",
+  );
   const actionedReports = reportRows.filter((row) =>
     ["actioned", "escalated"].includes(row.review_status),
   );
@@ -1594,7 +1909,8 @@ export async function updateInstitutionPost(
   body: DbRow,
   institutionProfile?: DbRow,
 ) {
-  const profile = institutionProfile ?? (await requireInstitutionProfile(userId));
+  const profile =
+    institutionProfile ?? (await requireInstitutionProfile(userId));
   const access = resolveInstitutionAccess(profile.role);
 
   if (!access) {
@@ -1604,7 +1920,11 @@ export async function updateInstitutionPost(
   const workflowStatus =
     body.workflowStatus === undefined
       ? undefined
-      : assertEnumValue(body.workflowStatus, WORKFLOW_STATUSES, "workflowStatus");
+      : assertEnumValue(
+          body.workflowStatus,
+          WORKFLOW_STATUSES,
+          "workflowStatus",
+        );
   const caseStatus =
     body.caseStatus === undefined
       ? undefined
@@ -1643,15 +1963,22 @@ export async function updateInstitutionPost(
     "At least one institution update is required",
   );
 
-  if (workflowStatus !== undefined && !access.allowedWorkflowStatuses.includes(workflowStatus)) {
-    throw new ForbiddenError("This role cannot change the post workflow to the requested status");
+  if (
+    workflowStatus !== undefined &&
+    !access.allowedWorkflowStatuses.includes(workflowStatus)
+  ) {
+    throw new ForbiddenError(
+      "This role cannot change the post workflow to the requested status",
+    );
   }
 
   if (
     (caseStatus !== undefined || internalNotes !== undefined) &&
     !(access.canUpdateCaseStatus || access.canUpdateCaseNotes)
   ) {
-    throw new ForbiddenError("This role cannot update institution case details");
+    throw new ForbiddenError(
+      "This role cannot update institution case details",
+    );
   }
 
   if (caseStatus !== undefined && !access.canUpdateCaseStatus) {
@@ -1675,7 +2002,11 @@ export async function updateInstitutionPost(
     .select("id, workflow_status")
     .eq("id", postId)
     .maybeSingle();
-  const post = ensureSuccess(postResult.data, postResult.error, "Failed to load post");
+  const post = ensureSuccess(
+    postResult.data,
+    postResult.error,
+    "Failed to load post",
+  );
 
   if (!post) {
     throw new NotFoundError("Post not found");
@@ -1700,7 +2031,11 @@ export async function updateInstitutionPost(
       to_status: workflowStatus,
       change_reason: changeReason ?? "institution_update",
     });
-    ensureSuccess(null, historyResult.error, "Failed to record post status history");
+    ensureSuccess(
+      null,
+      historyResult.error,
+      "Failed to record post status history",
+    );
   }
 
   if (
@@ -1719,7 +2054,10 @@ export async function updateInstitutionPost(
     const [organization] = await Promise.all([
       fetchOrganizationsByIds([organizationId]),
     ]);
-    assert(organization.has(organizationId), "assignedOrganizationId is not recognized");
+    assert(
+      organization.has(organizationId),
+      "assignedOrganizationId is not recognized",
+    );
 
     const existingCaseViewResult = await supabase
       .from("institution_case_views")
@@ -1743,24 +2081,34 @@ export async function updateInstitutionPost(
           response_notes:
             internalNotes !== undefined
               ? internalNotes
-              : existingCaseView.response_notes ?? null,
+              : (existingCaseView.response_notes ?? null),
           updated_at: now,
           last_viewed_at: now,
         })
         .eq("id", existingCaseView.id);
-      ensureSuccess(null, caseUpdateResult.error, "Failed to update institution case view");
+      ensureSuccess(
+        null,
+        caseUpdateResult.error,
+        "Failed to update institution case view",
+      );
     } else {
-      const caseInsertResult = await supabase.from("institution_case_views").insert({
-        id: randomUUID(),
-        post_id: postId,
-        profile_id: userId,
-        organization_id: organizationId,
-        case_status: caseStatus ?? "triage",
-        response_notes: internalNotes ?? null,
-        updated_at: now,
-        last_viewed_at: now,
-      });
-      ensureSuccess(null, caseInsertResult.error, "Failed to create institution case view");
+      const caseInsertResult = await supabase
+        .from("institution_case_views")
+        .insert({
+          id: randomUUID(),
+          post_id: postId,
+          profile_id: userId,
+          organization_id: organizationId,
+          case_status: caseStatus ?? "triage",
+          response_notes: internalNotes ?? null,
+          updated_at: now,
+          last_viewed_at: now,
+        });
+      ensureSuccess(
+        null,
+        caseInsertResult.error,
+        "Failed to create institution case view",
+      );
     }
   }
 
@@ -1769,7 +2117,11 @@ export async function updateInstitutionPost(
       .from("post_reports")
       .update({ review_status: reportReviewStatus })
       .eq("post_id", postId);
-    ensureSuccess(null, reviewResult.error, "Failed to update report review status");
+    ensureSuccess(
+      null,
+      reviewResult.error,
+      "Failed to update report review status",
+    );
   }
 
   return fetchInstitutionPostDetail(postId, profile);

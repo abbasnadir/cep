@@ -35,6 +35,7 @@ const postsRouter: RouterObject = {
         const postId = assertUuid(req.params.postId, "postId");
         const post = await fetchPostDetail(postId, {
           viewerUserId: req.user?.id,
+          viewerRole: req.user?.role ?? "citizen",
         });
         res.status(200).json(post);
       },

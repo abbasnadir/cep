@@ -20,7 +20,7 @@ import type {
 
 function getAliasInitial(alias: string) {
   const trimmed = alias.trim();
-  return trimmed ? trimmed[0]?.toUpperCase() ?? "C" : "C";
+  return trimmed ? (trimmed[0]?.toUpperCase() ?? "C") : "C";
 }
 
 export default function PostDetailPage() {
@@ -30,7 +30,8 @@ export default function PostDetailPage() {
   const [post, setPost] = useState<PostDetail | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentBody, setCommentBody] = useState("");
-  const [reportReason, setReportReason] = useState<ReportCreateRequest["reasonCode"]>("spam");
+  const [reportReason, setReportReason] =
+    useState<ReportCreateRequest["reasonCode"]>("spam");
   const [reportNotice, setReportNotice] = useState<string | null>(null);
   const [loadingPost, setLoadingPost] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +67,9 @@ export default function PostDetailPage() {
       } catch (loadError) {
         if (!ignore) {
           setError(
-            loadError instanceof Error ? loadError.message : "Unable to load this post.",
+            loadError instanceof Error
+              ? loadError.message
+              : "Unable to load this post.",
           );
         }
       } finally {
@@ -94,7 +97,10 @@ export default function PostDetailPage() {
     }
 
     commentInputRef.current.focus();
-    commentInputRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    commentInputRef.current.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
   }, [post, searchParams, session]);
 
   async function handleRaise() {
@@ -105,10 +111,13 @@ export default function PostDetailPage() {
 
     setBusy(true);
     try {
-      const response = await apiFetch<RaiseResponse>(`/posts/${params.postId}/raises`, {
-        method: "POST",
-        accessToken: session.access_token,
-      });
+      const response = await apiFetch<RaiseResponse>(
+        `/posts/${params.postId}/raises`,
+        {
+          method: "POST",
+          accessToken: session.access_token,
+        },
+      );
 
       setPost({
         ...post,
@@ -117,7 +126,9 @@ export default function PostDetailPage() {
     } catch (raiseError) {
       setReportNotice(null);
       setError(
-        raiseError instanceof Error ? raiseError.message : "Unable to raise this issue.",
+        raiseError instanceof Error
+          ? raiseError.message
+          : "Unable to raise this issue.",
       );
     } finally {
       setBusy(false);
@@ -132,10 +143,13 @@ export default function PostDetailPage() {
 
     setBusy(true);
     try {
-      const response = await apiFetch<FollowResponse>(`/posts/${params.postId}/follows`, {
-        method: "POST",
-        accessToken: session.access_token,
-      });
+      const response = await apiFetch<FollowResponse>(
+        `/posts/${params.postId}/follows`,
+        {
+          method: "POST",
+          accessToken: session.access_token,
+        },
+      );
 
       setPost({
         ...post,
@@ -145,7 +159,9 @@ export default function PostDetailPage() {
     } catch (followError) {
       setReportNotice(null);
       setError(
-        followError instanceof Error ? followError.message : "Unable to follow this issue.",
+        followError instanceof Error
+          ? followError.message
+          : "Unable to follow this issue.",
       );
     } finally {
       setBusy(false);
@@ -166,11 +182,14 @@ export default function PostDetailPage() {
 
     setBusy(true);
     try {
-      const response = await apiFetch<Comment>(`/posts/${params.postId}/comments`, {
-        method: "POST",
-        accessToken: session.access_token,
-        body: JSON.stringify({ body: commentBody.trim() }),
-      });
+      const response = await apiFetch<Comment>(
+        `/posts/${params.postId}/comments`,
+        {
+          method: "POST",
+          accessToken: session.access_token,
+          body: JSON.stringify({ body: commentBody.trim() }),
+        },
+      );
 
       setComments((current) => [response, ...current]);
       setCommentBody("");
@@ -185,14 +204,19 @@ export default function PostDetailPage() {
     } catch (commentError) {
       setReportNotice(null);
       setError(
-        commentError instanceof Error ? commentError.message : "Unable to add the comment.",
+        commentError instanceof Error
+          ? commentError.message
+          : "Unable to add the comment.",
       );
     } finally {
       setBusy(false);
     }
   }
 
-  async function submitReport(payload: ReportCreateRequest, successMessage: string) {
+  async function submitReport(
+    payload: ReportCreateRequest,
+    successMessage: string,
+  ) {
     if (!session?.access_token || !params.postId) {
       setError("Sign in to report this post.");
       return;
@@ -210,7 +234,9 @@ export default function PostDetailPage() {
     } catch (reportError) {
       setReportNotice(null);
       setError(
-        reportError instanceof Error ? reportError.message : "Unable to submit the report.",
+        reportError instanceof Error
+          ? reportError.message
+          : "Unable to submit the report.",
       );
     } finally {
       setBusy(false);
@@ -232,7 +258,12 @@ export default function PostDetailPage() {
   }
 
   if (loadingPost) {
-    return <StateBlock title="Loading post" description="Fetching thread details and comments." />;
+    return (
+      <StateBlock
+        title="Loading post"
+        description="Fetching thread details and comments."
+      />
+    );
   }
 
   if (error && !post) {
@@ -262,13 +293,13 @@ export default function PostDetailPage() {
       <div className="space-y-6">
         {!session && (
           <div className="rounded-[26px] border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-50">
-            You are viewing this thread as a guest. Reading is open, but raising,
-            commenting, and reporting require sign-in.
+            You are viewing this thread as a guest. Reading is open, but
+            raising, commenting, and reporting require sign-in.
           </div>
         )}
 
         {error && post && (
-          <div className="rounded-[24px] border border-rose-400/30 bg-rose-400/10 p-4 text-sm text-rose-100">
+          <div className="rounded-[24px] border border-rose-500/40 bg-rose-200/85 p-4 text-sm text-black">
             {error}
           </div>
         )}
@@ -282,10 +313,14 @@ export default function PostDetailPage() {
         <div className="social-card rounded-[34px] border border-white/10 p-6">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div className="flex min-w-0 items-start gap-4">
-              <div className="social-avatar shrink-0">{getAliasInitial(post.authorAlias)}</div>
+              <div className="social-avatar shrink-0">
+                {getAliasInitial(post.authorAlias)}
+              </div>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2 text-sm text-slate-400">
-                  <span className="font-semibold text-white">{post.authorAlias}</span>
+                  <span className="font-semibold text-white">
+                    {post.authorAlias}
+                  </span>
                   <span className="text-slate-600">/</span>
                   <span>{post.area.name}</span>
                   <span className="text-slate-600">/</span>
@@ -293,11 +328,15 @@ export default function PostDetailPage() {
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <span className="tag bg-cyan-100 text-cyan-900">{post.categoryLabel}</span>
+                  <span className="tag bg-cyan-100 text-cyan-900">
+                    {post.categoryLabel}
+                  </span>
                   <span className="tag bg-slate-100 text-slate-900">
                     {post.workflowStatus.replace("_", " ")}
                   </span>
-                  <span className="tag bg-slate-100 text-slate-900">{post.area.name}</span>
+                  <span className="tag bg-slate-100 text-slate-900">
+                    {post.area.name}
+                  </span>
                 </div>
               </div>
             </div>
@@ -313,7 +352,9 @@ export default function PostDetailPage() {
           <h1 className="mt-6 text-4xl font-semibold tracking-[-0.04em] text-white">
             {post.descriptionExcerpt}
           </h1>
-          <p className="mt-5 text-base leading-8 text-slate-200">{post.description}</p>
+          <p className="mt-5 text-base leading-8 text-slate-200">
+            {post.description}
+          </p>
 
           {post.media.length > 0 && (
             <div className="mt-6">
@@ -322,7 +363,13 @@ export default function PostDetailPage() {
                 {post.media
                   .filter((media) => media.mediaType === "image")
                   .map((media) => (
-                    <a key={media.id} href={media.url} target="_blank" rel="noreferrer" className="block">
+                    <a
+                      key={media.id}
+                      href={media.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block"
+                    >
                       <img
                         src={media.url}
                         alt={`Attached image for ${post.categoryLabel}`}
@@ -338,30 +385,50 @@ export default function PostDetailPage() {
           {post.aiAssessment?.summary && (
             <div className="mt-6 rounded-[24px] border border-cyan-400/20 bg-cyan-400/8 p-4">
               <p className="label-text">AI summary</p>
-              <p className="mt-3 text-sm leading-7 text-slate-200">{post.aiAssessment.summary}</p>
+              <p className="mt-3 text-sm leading-7 text-slate-200">
+                {post.aiAssessment.summary}
+              </p>
             </div>
           )}
 
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
             <div className="social-metric">
               <p className="label-text">Raises</p>
-              <p className="mt-2 text-xl font-semibold text-white">{post.raiseCount}</p>
+              <p className="mt-2 text-xl font-semibold text-white">
+                {post.raiseCount}
+              </p>
             </div>
             <div className="social-metric">
               <p className="label-text">Comments</p>
-              <p className="mt-2 text-xl font-semibold text-white">{post.commentCount}</p>
+              <p className="mt-2 text-xl font-semibold text-white">
+                {post.commentCount}
+              </p>
             </div>
             <div className="social-metric">
               <p className="label-text">Followers</p>
-              <p className="mt-2 text-xl font-semibold text-white">{post.followerCount}</p>
+              <p className="mt-2 text-xl font-semibold text-white">
+                {post.followerCount}
+              </p>
             </div>
           </div>
 
           <div className="mt-6 flex flex-wrap gap-3">
-            <button type="button" onClick={handleRaise} disabled={busy || !session} className="button-primary">
-              {session ? `Raise issue (${post.raiseCount})` : "Sign in to raise"}
+            <button
+              type="button"
+              onClick={handleRaise}
+              disabled={busy || !session}
+              className="button-primary"
+            >
+              {session
+                ? `Raise issue (${post.raiseCount})`
+                : "Sign in to raise"}
             </button>
-            <button type="button" onClick={handleFollow} disabled={busy || !session} className="button-secondary">
+            <button
+              type="button"
+              onClick={handleFollow}
+              disabled={busy || !session}
+              className="button-secondary"
+            >
               {session
                 ? `${post.isFollowing ? "Following" : "Follow issue"} (${post.followerCount})`
                 : "Sign in to follow"}
@@ -375,7 +442,9 @@ export default function PostDetailPage() {
         <div className="surface rounded-[32px] border border-white/10 p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="label-text">Comments</p>
-            <p className="text-sm text-slate-400">{comments.length} responses in thread</p>
+            <p className="text-sm text-slate-400">
+              {comments.length} responses in thread
+            </p>
           </div>
 
           <form className="mt-4 space-y-3" onSubmit={handleComment}>
@@ -392,7 +461,11 @@ export default function PostDetailPage() {
               }
               disabled={!session}
             />
-            <button type="submit" disabled={busy || !session} className="button-primary">
+            <button
+              type="submit"
+              disabled={busy || !session}
+              className="button-primary"
+            >
               {session ? "Post comment" : "Sign in to comment"}
             </button>
           </form>
@@ -408,7 +481,9 @@ export default function PostDetailPage() {
                     <span>{comment.authorAlias}</span>
                     <span>{formatTimeAgo(comment.createdAt)}</span>
                   </div>
-                  <p className="mt-3 text-sm leading-7 text-slate-200">{comment.body}</p>
+                  <p className="mt-3 text-sm leading-7 text-slate-200">
+                    {comment.body}
+                  </p>
                 </div>
               ))
             ) : (
@@ -424,8 +499,9 @@ export default function PostDetailPage() {
         <div className="surface rounded-[32px] border border-white/10 p-6">
           <p className="label-text">Thread actions</p>
           <p className="mt-4 text-sm leading-7 text-slate-300">
-            Help keep the civic stream useful. Raise the issue to increase urgency,
-            comment to add context, or report if the post breaks platform rules.
+            Help keep the civic stream useful. Raise the issue to increase
+            urgency, comment to add context, or report if the post breaks
+            platform rules.
           </p>
 
           <label className="mt-5 block">
@@ -434,7 +510,9 @@ export default function PostDetailPage() {
               className="select-field mt-2"
               value={reportReason}
               onChange={(event) =>
-                setReportReason(event.target.value as ReportCreateRequest["reasonCode"])
+                setReportReason(
+                  event.target.value as ReportCreateRequest["reasonCode"],
+                )
               }
               disabled={!session}
             >
@@ -448,7 +526,12 @@ export default function PostDetailPage() {
           </label>
 
           <div className="mt-5 flex flex-wrap gap-3">
-            <button type="button" onClick={handleReport} disabled={busy || !session} className="button-secondary">
+            <button
+              type="button"
+              onClick={handleReport}
+              disabled={busy || !session}
+              className="button-secondary"
+            >
               {session ? "Report post" : "Sign in to report"}
             </button>
             {post.media.some((media) => media.mediaType === "image") && (
@@ -472,9 +555,18 @@ export default function PostDetailPage() {
         <div className="surface rounded-[32px] border border-white/10 p-6">
           <p className="label-text">Participation</p>
           <div className="mt-4 space-y-3 text-sm leading-7 text-slate-300">
-            <p>Guests can browse threads and follow the public civic conversation.</p>
-            <p>Signed-in users can post updates, comment, report abuse, and raise priority.</p>
-            <p>Institutions can use the responder tools to triage what is surfacing fastest.</p>
+            <p>
+              Guests can browse threads and follow the public civic
+              conversation.
+            </p>
+            <p>
+              Signed-in users can post updates, comment, report abuse, and raise
+              priority.
+            </p>
+            <p>
+              Institutions can use the responder tools to triage what is
+              surfacing fastest.
+            </p>
           </div>
         </div>
       </aside>
