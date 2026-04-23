@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "pnpm install --frozen-lockfile --prod=false && tsc",
     "start": "node dist/src/server.js",
     "dev": "nodemon --watch src --ext ts --exec tsx src/server.ts"
   },
