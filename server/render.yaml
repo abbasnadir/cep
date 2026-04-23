@@ -12,8 +12,11 @@ services:
       - key: PROD_URL
         value: $RENDER_EXTERNAL_URL
       - key: SUPABASE_URL
+        value: __SET_IN_RENDER_SUPABASE_URL__
       - key: SUPABASE_SERVICE_KEY
+        value: __SET_IN_RENDER_SUPABASE_SERVICE_KEY__
       - key: GROQ_KEY
+        value: __SET_IN_RENDER_GROQ_KEY__
       - key: GROQ_BASE_URL
         value: https://api.groq.com/openai/v1
       - key: GROQ_MODEL
