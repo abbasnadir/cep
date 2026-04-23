@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: cep-server
+    runtime: node
+    buildCommand: pnpm install && pnpm build
+    startCommand: node dist/src/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: $PORT
+      - key: PROD_URL
+        value: $RENDER_EXTERNAL_URL
+      - key: SUPABASE_URL
+      - key: SUPABASE_SERVICE_KEY
+      - key: GROQ_KEY
+      - key: GROQ_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: GROQ_CHAT_MODEL
+        value: llama-3.3-70b-versatile
+      - key: GROQ_TIMEOUT_MS
+        value: "120000"
+      - key: GROQ_CHAT_MAX_TOKENS
+        value: "500"
+      - key: GROQ_MAX_TOKENS
+        value: "4"
+      - key: GROQ_DEBUG
+        value: "true"
