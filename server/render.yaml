@@ -2,7 +2,7 @@ services:
   - type: web
     name: cep-server
     runtime: node
-    buildCommand: pnpm install && pnpm build
+    buildCommand: pnpm install --prod=false && pnpm run build
     startCommand: node dist/src/server.js
     envVars:
       - key: NODE_ENV
